@@ -8,7 +8,7 @@ Last updated: 2026-10-28 (end of Phase A)
 
 - **Name:** Updater
 - **Concept:** a developer portfolio auto-updater. It collects verifiable evidence of a developer's work (repositories, pull requests, articles, user-supplied facts), proposes portfolio and resume updates tied to that evidence, and lets the developer review every change. Nothing is published automatically.
-- **Target users:** students and early-career developers, open-source contributors, technical writers, experienced developers maintaining several resumes, freelancers (PRD.md §4).
+- **Target users:** developers grouped by the work Updater supports, not by name, career stage, or job title: work spread across several platforms, contributions to repositories they don't own, published technical writing, several resume versions, and work that isn't publicly verifiable (PRD.md §4).
 - **Primary user value:** an up-to-date, evidence-backed portfolio and role-specific resumes without repetitive manual maintenance, and without embellishment.
 
 ## Confirmed product principles
@@ -115,4 +115,5 @@ See the [decision log](#decision-log) below. architecture.md §17 summarizes the
 
 ## Change history
 
+- **2026-10-28 — Target users reframed.** At the owner's request, PRD.md §4 replaced named personas with activity-based user groups, without names, career stages, or job titles. The summary in this file was updated to match.
 - **2026-10-28 — Phase A (bootstrap).** Inspected the empty repository. Wrote all seven project documents, README, `.gitignore`, `.env.example`. Scaffolded Next.js 16.4.3 and replaced the boilerplate with a static bootstrap page. Verified install, lint, typecheck, build, dev, and start.
