@@ -27,7 +27,7 @@ Requirement keywords: **MUST** is required for the MVP; **SHOULD** is expected u
 
 Updater helps developers keep an accurate, evidence-backed professional profile without maintaining every document by hand. It collects verifiable information about a developer's work: repositories, open-source pull requests, published technical articles, and facts the developer supplies directly. It records where each fact came from, proposes portfolio and resume updates based on those facts, and lets the developer edit, approve, or dismiss every proposal before it is used.
 
-Updater serves students, working engineers, open-source contributors, technical writers, and freelancers. All of them have professional evidence scattered across platforms and documents that drift out of date.
+Updater serves developers whose professional evidence is scattered across platforms and documents that drift out of date. That includes developers who build their own projects, contribute to repositories they don't own, publish technical writing, maintain several resumes, or present work that isn't public.
 
 A conventional static portfolio generator turns whatever text it is given into an attractive page. Updater instead maintains a **structured model of a developer's professional work**:
 
@@ -48,37 +48,39 @@ The portfolio and each resume are views over that model. The model can answer "w
 5. **AI writing tools embellish.** Generic AI tools invent metrics ("improved performance by 40%"), responsibilities, and technologies. Developers either remove these by hand or present unverifiable claims to employers.
 6. **Provenance gets lost.** Months later, developers often cannot say which repository, pull request, or article supports a claim on their resume.
 
-## 4. Target users and personas
+## 4. Target users
 
-### 4.1 Priya: student or early-career developer
+Target users are defined by the work Updater must support. They are not defined by name, career stage, or job title. One developer may belong to several of these groups.
 
-- **Goals:** build a first credible portfolio from class projects, hackathon repositories, and a few blog posts, and produce a resume for internship applications.
-- **Pain points:** unsure what is worth including; tempted to overstate experience; little time to polish several documents.
-- **Use cases:** load repositories and notes, review suggested project descriptions, approve the accurate ones, and print a one-page resume for a "Software Engineering Intern" role.
+### 4.1 Developers whose work is spread across several platforms
 
-### 4.2 Marcus: software engineer contributing to open source
+- **Goals:** build an accurate portfolio from repositories, articles, and personal notes kept in different places, and produce a resume from it.
+- **Pain points:** unsure which work is worth including; tempted to overstate what a project involved; little time to polish several documents.
+- **Use cases:** load repositories and notes, review suggested project descriptions, approve the accurate ones, and print a one-page resume.
 
-- **Goals:** show merged upstream pull requests alongside employment work, with links reviewers can verify.
-- **Pain points:** contributions are spread across many repositories he does not own; hard to summarize a pull request accurately months later.
+### 4.2 Developers contributing to repositories they don't own
+
+- **Goals:** show merged upstream pull requests next to their own projects, with links reviewers can verify.
+- **Pain points:** contributions are spread across many repositories owned by others; summarizing a pull request accurately months later is hard.
 - **Use cases:** review proposals created from merged pull requests, open the original pull request from the review queue, and edit the wording before approving.
 
-### 4.3 Elena: developer who publishes technical content
+### 4.3 Developers who publish technical writing
 
-- **Goals:** list recent articles and talks on her portfolio automatically; use writing as evidence of expertise for developer-relations roles.
+- **Goals:** list recent articles and talks on their portfolio without editing it by hand each time, and use that writing as evidence of expertise.
 - **Pain points:** each new article means a manual portfolio edit; article metadata (title, date, URL) gets copied wrongly.
-- **Use cases:** add articles as evidence, approve the proposed portfolio entries, and select writing-focused achievements for a "Developer Advocate" resume.
+- **Use cases:** add articles as evidence, approve the proposed portfolio entries, and select writing-focused achievements for a resume aimed at a writing-heavy role.
 
-### 4.4 David: experienced developer maintaining multiple resumes
+### 4.4 Developers maintaining several versions of their resume
 
-- **Goals:** keep several role-specific resumes (staff backend, engineering manager) consistent with one underlying record.
+- **Goals:** keep several role-specific resumes consistent with one underlying record.
 - **Pain points:** resumes diverge; an update to one is never copied to the others; old claims linger after they stop being accurate.
 - **Use cases:** create resume drafts per target role from the same approved claims, and edit a summary per role without changing the source facts.
 
-### 4.5 Aisha: freelancer presenting work to clients
+### 4.5 Developers presenting work that isn't publicly verifiable
 
-- **Goals:** present the most relevant projects to each prospective client quickly.
-- **Pain points:** client work may not be public; she must describe it truthfully without exposing confidential details.
-- **Use cases:** add client projects as user-supplied statements marked as such, choose which projects appear in each resume, and keep confidential projects out of the public portfolio.
+- **Goals:** present the most relevant projects to each audience, including client or confidential work that has no public source.
+- **Pain points:** the work has no public repository or article to link to; it must be described truthfully without exposing confidential details.
+- **Use cases:** add such projects as user-supplied statements marked as such, choose which projects appear in each resume, and keep confidential projects out of the public portfolio.
 
 ## 5. Product goals
 
