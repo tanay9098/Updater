@@ -5,7 +5,7 @@
 | Version | 0.1.0 |
 | Last updated | 2026-10-28 |
 | Scope | The interface of the **Updater application** itself. The portfolio preview and resume preview are documents rendered *inside* Updater. This is not a spec for a separate personal website. |
-| Implementation status | Specification only. At Phase A the repository contains a single static bootstrap page with baseline tokens. Everything below is implemented in Phases B–C (see [`tracker.md`](./tracker.md)). |
+| Implementation status | Phase B implemented the theme system (§2), tokens (§2.1), typography roles (§3), the application shell (§4), the component system (§5), and Settings → Appearance (§13). Page content in §7–§13 is Phase C work; until then each page shows an honest empty state. See [`tracker.md`](./tracker.md). |
 | Related | [`PRD.md`](./PRD.md) · [`architecture.md`](./architecture.md) · [`rules.md`](./rules.md) |
 
 ## 1. Design philosophy
@@ -41,15 +41,16 @@ Concrete rules:
 - **Radius:** controls and small elements use 6 px (`--radius-sm`), panels use 8 px (`--radius-md`). Nested containers never add another rounded border. Use dividers instead.
 - **Elevation:** surfaces are separated by borders. Shadows appear only on floating layers (menus, dialogs, toasts).
 - **Color:** neutral surfaces plus one blue accent for primary actions and links. Status colors appear only in status indicators and messages.
-- **Icons:** Lucide icons at 16 px (inline) or 20 px (navigation), stroke 1.75. Every icon either sits beside a text label or has an accessible name.
+- **Icons:** Lucide icons at 16 px (inline) or 20 px (navigation and top-bar buttons), stroke 1.75. Status badges use 14 px to match their 12 px text. Every icon either sits beside a text label or has an accessible name.
 
 ## 2. Theme system
 
 Two complete themes, applied through `data-theme="light" | "dark"` on `<html>`.
 
 - **Bright (light) mode is the default** for every first visit, regardless of the operating-system preference (D-008).
-- **Switcher:** a button in the top bar and a radio group in Settings → Appearance. The top-bar button is labeled "Switch to dark theme" or "Switch to light theme" depending on the current theme, and exposes `aria-pressed` relative to dark mode.
-- **Persistence:** stored in `localStorage` under `updater:theme`.
+- **Switcher:** a button in the top bar and a radio group in Settings → Appearance. Both read the same state, so they always agree.
+  - *Implemented deviation (D-013):* the top-bar button has a **constant** accessible name, "Dark theme", plus `aria-pressed` (true in dark mode). The original spec changed the label *and* used `aria-pressed`, which makes screen readers announce contradictory states ("Switch to light theme, pressed"). The WAI-ARIA button pattern says a toggle's name must not change when its state does. A tooltip names the action ("Switch to light theme" / "Switch to dark theme"). The icon shows the current theme (sun or moon). CSS selects it from `data-theme`, so it is correct before hydration.
+- **Persistence:** stored in `localStorage` under `updater:theme`. If saving fails (storage blocked or full), the theme still changes for the current visit, and a warning toast says so: "Theme changed for this visit only". The preference also follows changes made in other open tabs.
 - **No flash:** a small static inline script in the root layout reads the stored preference and sets `data-theme` before first paint. `<html>` uses `suppressHydrationWarning`. If storage is unavailable the theme falls back to light without errors.
 - **Tokens:** all colors are semantic CSS custom properties defined in `src/app/globals.css` and mapped into Tailwind with `@theme inline`. Components use token utilities (`bg-surface`, `text-muted`, `border-border`…), never raw hex values.
 
@@ -81,6 +82,18 @@ Ratios in parentheses were computed with the WCAG 2.x relative-luminance formula
 | `--demo` / `--demo-surface` | Demo data label | `#6d28d9` / `#f5f3ff` | `#c4b5fd` / `#1f1833` |
 | `--disabled` / `--disabled-surface` | Disabled text and fill | `#a1a1aa` / `#f4f4f5` | `#5c5c66` / `#1b1b1f` |
 
+**Tokens added during Phase B** (needed for interaction states the table above did not cover; ratios computed with the same formula):
+
+| Token | Purpose | Light | Dark |
+| --- | --- | --- | --- |
+| `--primary-hover` | Primary button hover | `#1e40af` (`--primary-foreground` on it 8.7:1) | `#60a5fa` (7.7:1) |
+| `--error-foreground` | Text on destructive buttons | `#ffffff` (6.5:1 on `--error`) | `#0c0c0e` (7.1:1) |
+| `--error-hover` | Destructive button hover | `#991b1b` (8.3:1) | `#fca5a5` (10.3:1) |
+| `--overlay` | Dialog and drawer backdrop | `rgb(24 24 27 / 0.4)` | `rgb(0 0 0 / 0.6)` |
+| `--elevation` | Shadow for floating layers (Tailwind `shadow-elevated`) | soft two-layer shadow | dark shadow plus a faint 1 px edge |
+
+**Enforcement:** `globals.css` resets Tailwind's default color palette, font sizes, and font weights (`--color-*: initial` and so on). Only the semantic utilities exist (`bg-surface`, `text-muted`, `border-border-strong`, `text-title`, `font-semibold`…), so a raw palette class such as `bg-zinc-100` does not compile to anything. The `dark:` variant targets `[data-theme="dark"]`, never the OS preference. It is used only for theme-dependent visibility (the toggle icon), not for colors.
+
 **Contrast expectations:**
 
 - Body and secondary text: ≥ 4.5:1.
@@ -110,14 +123,18 @@ Font stacks (D-002):
 
 Headings never exceed 1.5rem in the app. Font weights are limited to 400, 500, and 600.
 
+Tailwind utilities for these roles: `text-title`, `text-heading`, `text-subheading`, `text-body` (default on `body`), `text-long`, `text-label`, `text-support`, `text-meta`, and `text-code`. Weights: `font-normal`, `font-medium`, `font-semibold`.
+
 ## 4. Layout and responsive behavior
 
 **Breakpoints:** Tailwind defaults (`sm` 640, `md` 768, `lg` 1024, `xl` 1280).
 
 - **Application shell:**
   - ≥ `lg`: fixed left sidebar (15rem) holding the product name, the primary navigation, and a footer showing the save status and "Data stored in this browser".
+    - *Until workspace storage exists (T3.3)*, the footer says only what is true: "Only your theme preference is saved, in this browser. Workspace storage isn't built yet." It never shows a save status.
   - < `lg`: the sidebar is replaced by a top bar with a menu button that opens the navigation in a modal drawer (Radix Dialog, focus-trapped, closes on Escape and on navigation).
-- **Top bar:** contains the page title area (breadcrumb on nested pages), a demo-data indicator when demo data is loaded, the theme toggle, and on narrow screens the menu button. Height 3.5rem, bottom border.
+- **Top bar:** contains the page title area (breadcrumb on nested pages), a demo-data indicator when demo data is loaded, the theme toggle, and on narrow screens the menu button. Height 3.5rem, bottom border. Sticky. `scroll-padding-top` keeps focused elements clear of it.
+  - As implemented: at ≥ `lg` the title area shows the current section name as plain text (not a heading; each page owns its `h1`). Below `lg` it shows the menu button and product mark.
 - **Main content:** `max-width: 72rem`, horizontal padding 1rem (< `sm`), 1.5rem (`sm`–`lg`), 2rem (≥ `lg`), vertical padding 1.5rem. Page header (title, one-line description, primary action) sits above the content and is separated by 1.5rem.
 - **Spacing scale:** multiples of 4 px. 8, 12, 16, 24, and 32 px are the usual steps. Related fields are 16 px apart and sections 32 px apart.
 - **Lists and tables:** prefer bordered lists with dividers. Tables are used only for genuinely tabular data (for example the source item list). Below `md`, tables collapse into stacked rows with labels. No horizontal page scroll. A table may scroll horizontally inside its own container as a last resort, with a visible affordance.
@@ -146,7 +163,8 @@ Built on Radix UI primitives where behavior is non-trivial (D-005), styled with 
 | Activity list | Rows: icon, one-line summary, relative time with absolute time on hover/title, and an optional link. |
 | Empty state | Inside the region it replaces: a short heading ("No items need review"), one sentence of guidance, and at most one primary action. No illustrations. |
 | Notifications | Toasts (Radix Toast) for completed actions, with polite live-region announcements. Errors that need action appear as inline alerts (`role="alert"`) near the cause, not only as toasts. A success toast appears only after the store confirms the save. |
-| Loading skeleton | Neutral blocks matching the layout (`--surface-muted`). Shown while the workspace hydrates. With reduced motion the animation is off. |
+| Loading skeleton | Neutral blocks matching the layout (`--border` fill: `--surface-muted` was nearly invisible on dark surfaces). Wrapped in a `role="status"` region that announces "Loading…" once. Shown while the workspace hydrates. With reduced motion the animation is off. |
+| Panel | Bordered section with an `h2` header row and a divider (`components/ui/panel.tsx`). Content inside uses dividers, never nested rounded containers. |
 | Save status | Sidebar footer and editor headers: "Saving…", "Saved locally · 14:02", or "Not saved: storage unavailable" with a retry action. |
 
 ## 6. Information architecture
@@ -344,7 +362,7 @@ Target **WCAG 2.2 AA**.
   - Landmarks: `header`, `nav` (labeled "Primary"), and `main`.
   - A skip link "Skip to content".
   - One `h1` per page and an ordered heading hierarchy.
-  - Route changes move focus to the page `h1`.
+  - Route changes move focus to the page `h1`. `PageHeader` does this. The initial load never moves focus. With Cache Components, previous pages stay mounted but hidden (React `<Activity>`), and their effects re-run when shown again, so back and forward navigation also focus the visible heading (architecture.md §4.1).
 - **Keyboard:**
   - Every action is reachable by Tab and Shift+Tab.
   - Menus, tabs, and dialogs follow WAI-ARIA patterns (via Radix).
