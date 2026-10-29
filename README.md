@@ -2,20 +2,6 @@
 
 Updater helps developers keep an **evidence-backed** portfolio and role-specific resumes up to date. It collects verifiable information about their work (repositories, pull requests, published articles, and facts they supply), proposes updates linked to that evidence, and lets them review every change. Nothing is published automatically.
 
-## Data and privacy
-
-- Everything is stored in this browser's `localStorage` (`updater:workspace:v1`, plus `updater:theme`). Nothing is sent to a server. There are no analytics.
-- No tokens, passwords, or API keys are stored; the persisted schema rejects unknown fields.
-- Stored data is validated on every load. If it can't be read, the app offers to export the raw data or reset instead of crashing.
-- Data is per browser and per device. Clearing site data deletes it, so use **Settings → Export workspace** for backups.
-
-## Known limitations
-
-- No real integrations (GitHub and RSS are planned), no accounts, no server storage, no publishing.
-- No generated PDF: printing uses the browser's print dialog and a print stylesheet. No compatibility with applicant tracking systems is claimed or checked.
-- Proposals come from fixed templates over evidence fields (no AI). Conflicts are detected only within a single source item.
-- End-to-end tests were run as one-off Playwright scripts; a committed `e2e/` suite is planned (tracker T9.9).
-
 ## Tech stack
 
 - [Next.js](https://nextjs.org) (App Router, Turbopack, Cache Components) with React
@@ -74,7 +60,3 @@ Tests live next to the code they test (`*.test.ts`, `*.test.tsx`); shared fixtur
 ```
 
 The architecture, including how evidence, generated wording, review state, and publishing state are kept separate, is described in [`architecture.md`](./architecture.md).
-
-## Contributing
-
-Read [`AGENTS.md`](./AGENTS.md) and [`rules.md`](./rules.md) before making changes. In short: never fabricate claims or integration states, keep evidence separate from generated wording, never commit secrets, and only mark tracker tasks done after verifying them.
