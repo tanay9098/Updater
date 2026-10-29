@@ -57,7 +57,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {toasts.map((toast) => (
         <ToastItem key={toast.id} toast={toast} onClose={() => remove(toast.id)} />
       ))}
-      <ToastPrimitive.Viewport className="fixed inset-x-0 bottom-0 z-[60] flex flex-col gap-2 p-4 outline-none sm:left-auto sm:w-full sm:max-w-sm" />
+      <ToastPrimitive.Viewport className="fixed inset-x-0 bottom-0 z-[60] flex flex-col gap-2 p-4 outline-none sm:left-auto sm:w-full sm:max-w-sm print:hidden" />
     </ToastPrimitive.Provider>
   );
 }

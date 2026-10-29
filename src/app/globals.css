@@ -242,3 +242,50 @@
     scroll-behavior: auto !important;
   }
 }
+
+/*
+ * Print stylesheet (design.md §12, FR-RES-04). App chrome carries
+ * `print:hidden`; the resume prints in black on white whatever the theme,
+ * with 16 mm margins and no breaks inside entries. Page size follows the
+ * browser's setting (A4 or Letter).
+ */
+@media print {
+  :root,
+  [data-theme="light"],
+  [data-theme="dark"] {
+    color-scheme: light;
+    --background: #ffffff;
+    --surface: #ffffff;
+    --surface-muted: #ffffff;
+    --foreground: #000000;
+    --foreground-secondary: #1f1f1f;
+    --muted: #3a3a3a;
+    --border: #9a9a9a;
+    --link: #000000;
+    --demo: #000000;
+  }
+
+  @page {
+    margin: 16mm;
+  }
+
+  body {
+    background: #ffffff;
+  }
+
+  .resume-print {
+    font-size: 11pt;
+    line-height: 1.4;
+  }
+
+  .resume-entry,
+  .resume-print article {
+    break-inside: avoid;
+  }
+
+  .resume-print h1,
+  .resume-print h2,
+  .resume-print h3 {
+    break-after: avoid;
+  }
+}

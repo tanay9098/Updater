@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { overlayClassName } from "@/components/ui/dialog";
 import { PrimaryNav } from "./primary-nav";
 import { ProductMark } from "./product-mark";
-import { StorageNote } from "./storage-note";
+import { SaveStatus } from "@/components/workspace/save-status";
 
 const DESKTOP_QUERY = "(min-width: 64rem)";
 
@@ -56,7 +56,7 @@ export function MobileNav() {
             <PrimaryNav onNavigate={close} />
           </div>
           <div className="shrink-0 border-t border-border px-4 py-4">
-            <StorageNote />
+            <SaveStatus />
           </div>
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
