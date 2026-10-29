@@ -1,6 +1,6 @@
 # Updater — Implementation Tracker
 
-Last updated: 2026-10-28 (end of Phase B) · Related: [`PRD.md`](./PRD.md) §15 (release readiness) · [`memory.md`](./memory.md) · [`rules.md`](./rules.md) §7.7
+Last updated: 2026-10-29 (end of Phase C) · Related: [`PRD.md`](./PRD.md) §15 (release readiness) · [`memory.md`](./memory.md) · [`rules.md`](./rules.md) §7.7
 
 **Status vocabulary:** `Todo` · `In Progress` · `Blocked` · `Done`.
 **Priorities:** `P0` required for the MVP · `P1` expected in the MVP if feasible · `P2` post-MVP.
@@ -13,8 +13,8 @@ The project owner reviews and approves each execution phase before the next one 
 | Execution phase | Tracker phases | State |
 | --- | --- | --- |
 | A — Bootstrap | Phase 1 | **Done. Approved by the owner (Phase B requested 2026-10-28).** |
-| B — Foundation | Phase 2 (plus T8.2) | **Done. Awaiting owner review.** |
-| C — Core functionality | Phases 3–8 | Todo |
+| B — Foundation | Phase 2 (plus T8.2) | **Done. Approved by the owner (Phase C requested 2026-10-29).** |
+| C — Core functionality | Phases 3–8 | **Done. Awaiting owner review.** |
 | D — Verification | Phase 9 | Todo |
 | E — Next priorities | Phase 10 selection | Todo |
 
@@ -54,71 +54,71 @@ The project owner reviews and approves each execution phase before the next one 
 
 | ID | Task | Pri | Status | Deps | Definition of done |
 | --- | --- | --- | --- | --- | --- |
-| T3.1 | Typed domain models and Zod schemas (architecture.md §5) | P0 | Todo | T2.6 | Every entity has a schema and an inferred type. Invalid fixtures are rejected in tests. |
-| T3.2 | Workspace document v1 + empty workspace factory | P0 | Todo | T3.1 | `createEmptyWorkspace()` validates against the schema. |
-| T3.3 | Local storage adapter: load, validate, migrate, save, recovery | P0 | Todo | T3.2 | Tests cover valid load, corrupt JSON, schema mismatch (raw value kept in the recovery key), quota/unavailable errors, and no secret fields in the schema. |
-| T3.4 | Workspace store (context + reducer composed from pure functions) with save status | P0 | Todo | T3.3 | Actions return `Result`. Save status reflects the real adapter outcome. Integration test with an in-memory adapter. |
-| T3.5 | Profile editing (name, headline, intro, location, email, links) | P0 | Todo | T3.4, T2.5 | Inline validation. Persists after reload. FR-PROF-01 criteria met. |
-| T3.6 | Source, source item, and evidence representations + ingestion pipeline | P0 | Todo | T3.1 | `ingestItems` validates, de-duplicates by `(sourceId, externalId)`, and derives evidence. Tests included. |
-| T3.7 | Review and publishing state machines (architecture.md §7.1, §7.4) | P0 | Todo | T3.1 | Unit tests for every allowed and disallowed transition. Approval leaves publishing state unchanged. |
-| T3.8 | Onboarding flow (`/onboarding`) | P0 | Todo | T3.5, T4.3 | Journey A works end to end. Optional steps are skippable. Choice persists. |
+| T3.1 | Typed domain models and Zod schemas (architecture.md §5) | P0 | Done | T2.6 | Every entity has a schema and an inferred type. Invalid fixtures are rejected in tests. *Verified 2026-10-29:* `src/lib/validation/domain.ts` (strict Zod objects, cross-reference checks) and `src/types/domain.ts` (inferred types). Tests reject tampered statuses, unknown fields, broken provenance, and over-long skill names. |
+| T3.2 | Workspace document v1 + empty workspace factory | P0 | Done | T3.1 | `createEmptyWorkspace()` validates against the schema. *Verified 2026-10-29:* used by every store and domain test; the round-trip tests parse it with `workspaceSchema`. |
+| T3.3 | Local storage adapter: load, validate, migrate, save, recovery | P0 | Done | T3.2 | Tests cover valid load, corrupt JSON, schema mismatch (raw value kept in the recovery key), quota/unavailable errors, and no secret fields in the schema. *Verified 2026-10-29:* `src/lib/data/storage.test.ts` covers each case; strict schemas reject a `githubToken`/`accessToken` field. |
+| T3.4 | Workspace store (context + reducer composed from pure functions) with save status | P0 | Done | T3.3 | Actions return `Result`. Save status reflects the real adapter outcome. Integration test with an in-memory adapter. *Verified 2026-10-29:* `src/features/workspace/store.ts` (external store, `useSyncExternalStore` binding) with `store.test.ts`: saved/error/retry states, refused operations change nothing, results failing the schema are refused, reload persistence. |
+| T3.5 | Profile editing (name, headline, intro, location, email, links) | P0 | Done | T3.4, T2.5 | Inline validation. Persists after reload. FR-PROF-01 criteria met. *Verified 2026-10-29:* profile form in onboarding, Portfolio, and Settings; unit and component tests; Playwright reload check. |
+| T3.6 | Source, source item, and evidence representations + ingestion pipeline | P0 | Done | T3.1 | `ingestItems` validates, de-duplicates by `(sourceId, externalId)`, and derives evidence. Tests included. *Verified 2026-10-29:* `src/features/sources/ingestion.ts` + `sources.test.ts` (rejections with reasons, de-duplication updates the snapshot, automatic conflict marking). |
+| T3.7 | Review and publishing state machines (architecture.md §7.1, §7.4) | P0 | Done | T3.1 | Unit tests for every allowed and disallowed transition. Approval leaves publishing state unchanged. *Verified 2026-10-29:* `transitions.test.ts` checks all 20 cells of the §7.1 table plus not-found, conflict, and publishing-unchanged cases. Publishing has no reachable transition in the MVP (schema allows only `not_published`). |
+| T3.8 | Onboarding flow (`/onboarding`) | P0 | Done | T3.5, T4.3 | Journey A works end to end. Optional steps are skippable. Choice persists. *Verified 2026-10-29:* Playwright (Chromium, `next start`): Overview → Get started → profile with inline error → demo choice → Review Queue; state survives reload. Overview links to onboarding instead of redirecting (design.md §7). |
 
 ## Phase 4 — Sources and evidence
 
 | ID | Task | Pri | Status | Deps | Definition of done |
 | --- | --- | --- | --- | --- | --- |
-| T4.1 | Provider descriptors + registry (manual, demo, planned github, planned rss) | P0 | Todo | T3.1 | Descriptor type per architecture.md §9. Planned descriptors expose no operations. Unit test asserts no planned provider can yield `connected`. |
-| T4.2 | Sources page with honest status badges, capabilities, permissions, and setup notes | P0 | Todo | T4.1, T2.5 | design.md §9 implemented. FR-SRC-01/02 criteria met. |
-| T4.3 | Demo fixtures (fictional, `example.com` URLs, `isDemo`) + load/remove | P0 | Todo | T3.6 | Demo badges on every surface (FR-SRC-03). Removal works with confirmation and the keep-claims choice. |
-| T4.4 | Manual entry dialog → source item + user-asserted evidence + review item | P0 | Todo | T3.6, T3.7 | FR-SRC-04 met. Persists after reload. |
-| T4.5 | Source item lists with evidence counts and safe external links | P0 | Todo | T4.2 | Links pass `safeExternalUrl` and open in a new tab with `rel="noopener noreferrer"`. |
-| T4.6 | Empty, unavailable, and error states on Sources | P0 | Todo | T4.2 | Each state is rendered and covered by a component test. |
-| T4.7 | Document the GitHub integration path in the Planned card and architecture | P1 | Todo | T4.1 | Card states future permissions and flow. No connect button. |
+| T4.1 | Provider descriptors + registry (manual, demo, planned github, planned rss) | P0 | Done | T3.1 | Descriptor type per architecture.md §9. Planned descriptors expose no operations. Unit test asserts no planned provider can yield `connected`. *Verified 2026-10-29:* `src/lib/providers/{types,registry}.ts`; `sources.test.ts`. |
+| T4.2 | Sources page with honest status badges, capabilities, permissions, and setup notes | P0 | Done | T4.1, T2.5 | design.md §9 implemented. FR-SRC-01/02 criteria met. *Verified 2026-10-29:* component test (Local / Not loaded / Planned badges, no connect button, no "Connected" text) and Playwright. |
+| T4.3 | Demo fixtures (fictional, `example.com` URLs, `isDemo`) + load/remove | P0 | Done | T3.6 | Demo badges on every surface (FR-SRC-03). Removal works with confirmation and the keep-claims choice. *Verified 2026-10-29:* fixtures use example.com only (test); Demo labels on Sources, Review, Portfolio editor and preview, resume preview/print, Overview, plus the top-bar indicator; removal tested in unit, component, and Playwright runs (both choices). |
+| T4.4 | Manual entry dialog → source item + user-asserted evidence + review item | P0 | Done | T3.6, T3.7 | FR-SRC-04 met. Persists after reload. *Verified 2026-10-29:* unit and component tests (validation, `user_asserted` evidence, proposal); Playwright. |
+| T4.5 | Source item lists with evidence counts and safe external links | P0 | Done | T4.2 | Links pass `safeExternalUrl` and open in a new tab with `rel="noopener noreferrer"`. *Verified 2026-10-29:* `ExternalLink` renders nothing for unsafe URLs; component test checks `href`, `target`, and `rel` on demo items. |
+| T4.6 | Empty, unavailable, and error states on Sources | P0 | Done | T4.2 | Each state is rendered and covered by a component test. *Verified 2026-10-29:* component tests cover the empty states ("No entries yet…", "Not loaded…"), the validation-error state in the entry dialog, and a labeled badge for every source status. `unavailable`, `needs_attention`, and `syncing` have no producer in the MVP (no real provider exists), so they appear only in that badge test, never on the live page. |
+| T4.7 | Document the GitHub integration path in the Planned card and architecture | P1 | Done | T4.1 | Card states future permissions and flow. No connect button. *Verified 2026-10-29:* GitHub and RSS descriptors carry permissions and the planned flow; component test asserts no button in their panels. |
 
 ## Phase 5 — Review queue
 
 | ID | Task | Pri | Status | Deps | Definition of done |
 | --- | --- | --- | --- | --- | --- |
-| T5.1 | Review list with status tabs and counts | P0 | Todo | T3.7, T2.5 | FR-REV-01/02 met. |
-| T5.2 | Provenance detail: evidence, verification, source link, wording origin, "why suggested" | P0 | Todo | T5.1 | design.md §10 expanded view implemented. |
-| T5.3 | Edit (keeps original) and revert edit | P0 | Todo | T5.1 | FR-EDIT-01 met. The original is viewable. |
-| T5.4 | Approve → claim/project/skill created in the portfolio draft. Conflict acknowledgement. | P0 | Todo | T5.1 | FR-EDIT-02/04, FR-EVID-04 met. |
-| T5.5 | Dismiss with optional reason, and restore | P0 | Todo | T5.1 | FR-EDIT-03 met. Evidence still listed on Sources. |
-| T5.6 | Tests for review state transitions through the UI and store | P0 | Todo | T5.3–T5.5 | Component and integration tests pass. |
+| T5.1 | Review list with status tabs and counts | P0 | Done | T3.7, T2.5 | FR-REV-01/02 met. *Verified 2026-10-29:* tabs with counts (component test, Playwright). |
+| T5.2 | Provenance detail: evidence, verification, source link, wording origin, "why suggested" | P0 | Done | T5.1 | design.md §10 expanded view implemented. *Verified 2026-10-29:* expanded view shows wording origin, original proposal, "Why suggested", evidence with verification and facts, source link. |
+| T5.3 | Edit (keeps original) and revert edit | P0 | Done | T5.1 | FR-EDIT-01 met. The original is viewable. *Verified 2026-10-29:* component test (edit, validation, show original, revert with confirmation). |
+| T5.4 | Approve → claim/project/skill created in the portfolio draft. Conflict acknowledgement. | P0 | Done | T5.1 | FR-EDIT-02/04, FR-EVID-04 met. *Verified 2026-10-29:* unit and component tests (project + summary claim, achievement, skill merge, conflict acknowledgement dialog, publishing unchanged). |
+| T5.5 | Dismiss with optional reason, and restore | P0 | Done | T5.1 | FR-EDIT-03 met. Evidence still listed on Sources. *Verified 2026-10-29:* unit and component tests (reason stored, evidence kept, restore). |
+| T5.6 | Tests for review state transitions through the UI and store | P0 | Done | T5.3–T5.5 | Component and integration tests pass. *Verified 2026-10-29:* `review-queue.test.tsx` (7 tests incl. no success toast when saving fails) and `store.test.ts`. |
 
 ## Phase 6 — Portfolio
 
 | ID | Task | Pri | Status | Deps | Definition of done |
 | --- | --- | --- | --- | --- | --- |
-| T6.1 | Portfolio editor: profile and links sections | P0 | Todo | T3.5 | Edits persist. Inline validation. |
-| T6.2 | Projects: add, edit, reorder (buttons), visibility, delete with confirmation | P0 | Todo | T5.4 | FR-PORT-02 met. |
-| T6.3 | Skills with origin indicators | P0 | Todo | T5.4 | Add and remove work. Origin shown. |
-| T6.4 | Claims with origin badges, evidence popover, edit → `edited_from_source` | P0 | Todo | T5.4 | FR-PORT-04, FR-EDIT-05 met. Unit test for the origin change. |
-| T6.5 | Local preview labeled "Local preview: not published" | P0 | Todo | T6.1–T6.4 | FR-PORT-03 met. Demo labels visible in the preview. |
-| T6.6 | Draft vs publication state; Publish disabled with explanation | P0 | Todo | T6.5 | FR-PUB-01 met. No public URL claimed anywhere. |
+| T6.1 | Portfolio editor: profile and links sections | P0 | Done | T3.5 | Edits persist. Inline validation. *Verified 2026-10-29:* component test and Playwright (invalid link URL rejected inline, then saved). |
+| T6.2 | Projects: add, edit, reorder (buttons), visibility, delete with confirmation | P0 | Done | T5.4 | FR-PORT-02 met. *Verified 2026-10-29:* unit tests (add, reorder, hide, delete keeps evidence) and component test (add, delete with confirmation). |
+| T6.3 | Skills with origin indicators | P0 | Done | T5.4 | Add and remove work. Origin shown. *Verified 2026-10-29:* unit tests; chips show an origin dot plus screen-reader text. |
+| T6.4 | Claims with origin badges, evidence popover, edit → `edited_from_source` | P0 | Done | T5.4 | FR-PORT-04, FR-EDIT-05 met. Unit test for the origin change. *Verified 2026-10-29:* `originAfterEdit` unit test; component test edits a source claim and checks `edited_from_source` with evidence kept; evidence dialog test. |
+| T6.5 | Local preview labeled "Local preview: not published" | P0 | Done | T6.1–T6.4 | FR-PORT-03 met. Demo labels visible in the preview. *Verified 2026-10-29:* component test for the header text. |
+| T6.6 | Draft vs publication state; Publish disabled with explanation | P0 | Done | T6.5 | FR-PUB-01 met. No public URL claimed anywhere. *Verified 2026-10-29:* component test: Publish disabled with an accessible description; "Not published" badge. |
 
 ## Phase 7 — Resume builder
 
 | ID | Task | Pri | Status | Deps | Definition of done |
 | --- | --- | --- | --- | --- | --- |
-| T7.1 | Resume list + create with target role; rename, duplicate, delete | P0 | Todo | T3.4 | FR-RES-01 met. |
-| T7.2 | Select approved projects, claims, and skills; per-resume wording overrides | P0 | Todo | T7.1, T5.4 | FR-RES-02/03 met. Overrides do not change claims (test). |
-| T7.3 | Summary editing with "insert portfolio introduction" | P0 | Todo | T7.1 | No generated text. |
-| T7.4 | Resume preview | P0 | Todo | T7.2 | Single-column, semantic headings. |
-| T7.5 | Print stylesheet + "Print / Save as PDF" | P0 | Todo | T7.4 | Print preview hides chrome and is readable in both themes. Limitation documented (no generated PDF). |
-| T7.6 | Draft persistence and save status | P0 | Todo | T7.1 | Persists after reload. |
-| T7.7 | `suggestSelections` keyword-overlap tailoring | P1 | Todo | T7.2 | Unit tests. Only pre-selects and never adds text. |
+| T7.1 | Resume list + create with target role; rename, duplicate, delete | P0 | Done | T3.4 | FR-RES-01 met. *Verified 2026-10-29:* unit tests (create, rename, duplicate, delete) and component tests (create with validation, delete with confirmation). |
+| T7.2 | Select approved projects, claims, and skills; per-resume wording overrides | P0 | Done | T7.1, T5.4 | FR-RES-02/03 met. Overrides do not change claims (test). *Verified 2026-10-29:* unit and component tests assert claims and evidence are unchanged after saving overrides. |
+| T7.3 | Summary editing with "insert portfolio introduction" | P0 | Done | T7.1 | No generated text. *Verified 2026-10-29:* "Insert portfolio introduction" copies the user's own intro; tests assert suggestions leave the summary empty. |
+| T7.4 | Resume preview | P0 | Done | T7.2 | Single-column, semantic headings. *Verified 2026-10-29:* `ResumeDocumentView`; component test checks override text in the preview. |
+| T7.5 | Print stylesheet + "Print / Save as PDF" | P0 | Done | T7.4 | Print preview hides chrome and is readable in both themes. Limitation documented (no generated PDF). *Verified 2026-10-29:* Playwright print emulation in the dark theme renders black on white without app chrome; `page.pdf` produced an A4 PDF. |
+| T7.6 | Draft persistence and save status | P0 | Done | T7.1 | Persists after reload. *Verified 2026-10-29:* Playwright: saved summary present after reload; component test. |
+| T7.7 | `suggestSelections` keyword-overlap tailoring | P1 | Done | T7.2 | Unit tests. Only pre-selects and never adds text. *Verified 2026-10-29:* `resumes.test.ts` (tokenizer, role hints, workspace unchanged). |
 
 ## Phase 8 — Settings and privacy
 
 | ID | Task | Pri | Status | Deps | Definition of done |
 | --- | --- | --- | --- | --- | --- |
-| T8.1 | Profile basics in Settings | P0 | Todo | T3.5 | Edits persist. |
+| T8.1 | Profile basics in Settings | P0 | Done | T3.5 | Edits persist. *Verified 2026-10-29:* component test. |
 | T8.2 | Appearance: theme radio group synced with toggle | P0 | Done | T2.3 | Both controls stay in sync and persist. *Built early in Phase B (D-018). Verified:* component test and Playwright show the radio group and the top-bar toggle stay in sync and persist. |
-| T8.3 | Integration status summary | P0 | Todo | T4.1 | Mirrors the Sources statuses exactly. |
-| T8.4 | Privacy section with accurate text | P0 | Todo | T3.3 | Text matches actual behavior (FR-SET-03). |
-| T8.5 | Export JSON, import with validation, reset, remove demo data, restart onboarding | P0 (import P1) | Todo | T3.3 | FR-DATA-04, FR-SET-02 met. A failed import changes nothing (test). |
-| T8.6 | Confirmation dialogs for all destructive operations | P0 | Todo | T2.5 | Each names what is lost. Cancel is focused first. |
+| T8.3 | Integration status summary | P0 | Done | T4.1 | Mirrors the Sources statuses exactly. *Verified 2026-10-29:* both use `presentStatus(provider, providerStatus(...))`; component test. |
+| T8.4 | Privacy section with accurate text | P0 | Done | T3.3 | Text matches actual behavior (FR-SET-03). *Verified 2026-10-29:* component test; text reviewed against the implementation (no network calls, no analytics). |
+| T8.5 | Export JSON, import with validation, reset, remove demo data, restart onboarding | P0 (import P1) | Done | T3.3 | FR-DATA-04, FR-SET-02 met. A failed import changes nothing (test). *Verified 2026-10-29:* component tests (failed import leaves storage byte-identical; valid import replaces after confirmation; reset); Playwright export download. |
+| T8.6 | Confirmation dialogs for all destructive operations | P0 | Done | T2.5 | Each names what is lost. Cancel is focused first. *Verified 2026-10-29:* reset, import-replace, remove demo data, delete project/achievement/resume, revert edit use `ConfirmDialog` with counts; tests check Cancel focus. |
 
 ## Phase 9 — Testing and release readiness
 
@@ -155,4 +155,4 @@ These stay open until actually implemented and verified.
 
 ## Next recommended task
 
-After the owner approves Phase B: start **Phase C** with **T3.1** (domain models and Zod schemas, built on `src/lib/validation`), then **T3.2 → T3.3 → T3.4** (workspace document, storage adapter, store with real save status). The sidebar footer's save status (design.md §4) becomes possible with T3.4.
+After the owner approves Phase C: start **Phase D** with **T9.9** (commit the Playwright Journey A–E run as an `e2e/` suite; a one-off script already passes in Chromium), **T9.7** (accessibility review with an axe scan), and **T9.11** (documentation sync review).

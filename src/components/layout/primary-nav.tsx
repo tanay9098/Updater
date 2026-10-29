@@ -5,6 +5,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { NAV_ITEMS, isActiveRoute } from "@/lib/navigation";
 import { cn } from "@/lib/utils/cn";
+import { pendingReviewCount } from "@/features/workspace/workspace";
+import { useOptionalWorkspaceSnapshot } from "@/components/workspace/workspace-provider";
 import { NAV_ICONS } from "./nav-icons";
 
 type PrimaryNavProps = {
@@ -32,6 +34,8 @@ function ActiveNavList(props: PrimaryNavProps) {
 }
 
 export function NavList({ pathname, onNavigate }: PrimaryNavProps & { pathname: string | null }) {
+  const snapshot = useOptionalWorkspaceSnapshot();
+  const pending = snapshot.phase === "ready" ? pendingReviewCount(snapshot.workspace) : 0;
   return (
     <nav aria-label="Primary">
       <ul className="flex flex-col gap-0.5">
@@ -53,6 +57,12 @@ export function NavList({ pathname, onNavigate }: PrimaryNavProps & { pathname: 
               >
                 <Icon aria-hidden="true" size={20} strokeWidth={1.75} className="shrink-0" />
                 {item.label}
+                {item.id === "review" && pending > 0 ? (
+                  <span className="ml-auto inline-flex min-w-6 items-center justify-center rounded-sm bg-warning-surface px-1.5 text-meta font-medium text-warning">
+                    <span aria-hidden="true">{pending}</span>
+                    <span className="sr-only">, {pending} pending</span>
+                  </span>
+                ) : null}
               </Link>
             </li>
           );

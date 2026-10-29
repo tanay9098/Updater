@@ -3,9 +3,9 @@
 | Field | Value |
 | --- | --- |
 | Version | 0.1.0 |
-| Last updated | 2026-10-28 |
+| Last updated | 2026-10-29 |
 | Scope | The interface of the **Updater application** itself. The portfolio preview and resume preview are documents rendered *inside* Updater. This is not a spec for a separate personal website. |
-| Implementation status | Phase B implemented the theme system (§2), tokens (§2.1), typography roles (§3), the application shell (§4), the component system (§5), and Settings → Appearance (§13). Page content in §7–§13 is Phase C work; until then each page shows an honest empty state. See [`tracker.md`](./tracker.md). |
+| Implementation status | Phase B implemented §2–§5 and Settings → Appearance. Phase C implemented §6–§13. Where the implementation differs from the original text, the section has an *As implemented* note. See [`tracker.md`](./tracker.md). |
 | Related | [`PRD.md`](./PRD.md) · [`architecture.md`](./architecture.md) · [`rules.md`](./rules.md) |
 
 ## 1. Design philosophy
@@ -131,9 +131,10 @@ Tailwind utilities for these roles: `text-title`, `text-heading`, `text-subheadi
 
 - **Application shell:**
   - ≥ `lg`: fixed left sidebar (15rem) holding the product name, the primary navigation, and a footer showing the save status and "Data stored in this browser".
-    - *Until workspace storage exists (T3.3)*, the footer says only what is true: "Only your theme preference is saved, in this browser. Workspace storage isn't built yet." It never shows a save status.
+    - *As implemented (Phase C):* the footer shows the real save status: "Loading workspace…", "Data stored in this browser" (nothing saved this visit yet), "Saved locally · 14:02", or "Not saved: {reason}" with a "Retry save" button. The drawer shows the same status.
   - < `lg`: the sidebar is replaced by a top bar with a menu button that opens the navigation in a modal drawer (Radix Dialog, focus-trapped, closes on Escape and on navigation).
-- **Top bar:** contains the page title area (breadcrumb on nested pages), a demo-data indicator when demo data is loaded, the theme toggle, and on narrow screens the menu button. Height 3.5rem, bottom border. Sticky. `scroll-padding-top` keeps focused elements clear of it.
+- **Top bar:** contains the page title area (breadcrumb on nested pages), a demo-data indicator when demo data is loaded, the theme toggle, and on narrow screens the menu button.
+  - *As implemented:* the indicator reads "Includes demo data" ("Demo data" below `sm`) and links to Settings → Data. It stays while any demo-derived record exists, including approved demo content kept after the demo source was removed, so it never says "loaded" when nothing is loaded. There is no breadcrumb; nested pages show the section name. Height 3.5rem, bottom border. Sticky. `scroll-padding-top` keeps focused elements clear of it.
   - As implemented: at ≥ `lg` the title area shows the current section name as plain text (not a heading; each page owns its `h1`). Below `lg` it shows the menu button and product mark.
 - **Main content:** `max-width: 72rem`, horizontal padding 1rem (< `sm`), 1.5rem (`sm`–`lg`), 2rem (≥ `lg`), vertical padding 1.5rem. Page header (title, one-line description, primary action) sits above the content and is separated by 1.5rem.
 - **Spacing scale:** multiples of 4 px. 8, 12, 16, 24, and 32 px are the usual steps. Related fields are 16 px apart and sections 32 px apart.
@@ -179,7 +180,7 @@ Built on Radix UI primitives where behavior is non-trivial (D-005), styled with 
 | Settings | `/settings` | Profile basics, appearance, integrations, privacy, data |
 | (no nav item) | `/onboarding` | First-run flow. Reachable again from Settings. |
 
-The Review Queue nav item shows a count badge of `needs_review` + `edited` items when it is non-zero (for example "Review Queue, 3 pending"). These labels and routes are used consistently in code, docs, and UI.
+The Review Queue nav item shows a count badge of `needs_review` + `edited` items when it is non-zero (for example "Review Queue, 3 pending"). *As implemented:* the visible number is `aria-hidden` and the link's accessible name is "Review Queue, 3 pending". These labels and routes are used consistently in code, docs, and UI.
 
 ## 7. Onboarding
 
@@ -200,6 +201,8 @@ Shown at `/onboarding` when the workspace has no profile and onboarding is not c
    Under them, a "Planned integrations" note lists GitHub and blog feeds as not yet available, with the permissions they will request.
 
 Completion leads to Overview. Setup progress ("Profile added") is never shown as integration status ("Connected").
+
+*As implemented:* Overview's next-action panel links to onboarding while it is incomplete; there is no automatic redirect. Step 2 uses the same profile form as the editor ("Save profile", then "Skip for now" / "Continue without changes"). "Finish setup" goes to Sources (own entries), the Review Queue (demo data, loaded in the same save), or Overview (skip). Settings → "Restart onboarding" clears only the onboarding flag.
 
 ## 8. Overview dashboard
 
@@ -255,6 +258,8 @@ Provider list (one panel per provider, divided rows, not nested cards). Each row
 - **Demo workspace** has a "Load demo data" button (or "Remove demo data", with confirmation).
 - **Planned** providers have no connect button. They show "Not available yet" and the future flow, for example: "You'll sign in with GitHub and grant read-only access to public repositories."
 
+*As implemented:* the demo provider reads **"Not loaded"** (neutral) until loaded, never "Not connected". The kind line reads "Stored in this browser", "Fixture data", "Code host", or "Publishing". Each source item row also lists its evidence statements with verification badges and the status of its proposals, so dismissed items' evidence stays visible here. The manual entry dialog adds "Technologies" for projects and an optional "Portfolio project" for other kinds. The banner reads "Your workspace includes demo data".
+
 ## 10. Evidence and review queue
 
 The header reads "Review Queue", with the description "Proposed updates. Nothing reaches your portfolio until you approve it." Tabs: Needs review (default), Edited, Approved, Dismissed, each with a count.
@@ -300,6 +305,14 @@ Interactions:
 - **Revert edit** (Edited items) goes back to the original proposal after confirmation.
 - Focus moves to the next item after an action removes the current one from the list.
 
+*As implemented:*
+
+- Quick actions are always visible buttons that wrap on narrow screens instead of moving into a menu: three labeled buttons fit at 320 px, and a menu would hide them.
+- Editing a skill proposal uses a single-line "Skill name" field limited to 40 characters.
+- Restoring a dismissed item returns it with its original wording (any earlier edit is cleared).
+- Tab labels read "Needs review, 3"; the visible count is `aria-hidden`.
+- When an action can't be saved, the toast says "Changes could not be saved" and no success message appears.
+
 ## 11. Portfolio editor
 
 The header reads "Portfolio", with a draft state line: "Draft · Saved locally {time} · Not published". The Publish button is disabled, with helper text: "Publishing isn't available in this version. Use the preview to check your portfolio."
@@ -315,8 +328,10 @@ Editor sections (each an `h2` with a form):
 Behavior:
 
 - Edits save on blur or explicit Save per section, and the save status always reflects the real outcome.
+  - *As implemented (D-026):* explicit Save per section only. Each form shows "Unsaved changes" while it differs from the saved draft, its Save button is disabled when nothing changed, and the browser asks for confirmation before a reload or tab close loses unsaved edits. Skills, visibility, ordering, and deletions save immediately.
 - Validation errors appear beside the field, and the form keeps the user's input.
 - The preview header reads "Local preview: not published. Only you can see this." The preview renders name, headline, intro, links, skills, and visible projects with claims. Demo-derived content shows a Demo label even in the preview.
+  - *As implemented:* the preview shows the saved draft only ("It shows your saved draft, not unsaved edits"). Approved claims without a project appear in a sixth editor section, **Other achievements**, and in the preview (D-022). A project's summary from an approved proposal is its summary claim: it shows an origin badge and evidence, and editing it marks it Edited from source (D-023). Achievements can also be added by hand; they are labeled User-supplied.
 
 ## 12. Resume builder
 
@@ -333,6 +348,15 @@ Behavior:
 - **Actions:** Save (with save status) and "Print / Save as PDF" (`window.print()`). No ATS-compatibility claims.
 - **Print stylesheet:** hides app chrome, uses black text on white regardless of theme, sets page margins to 16 mm, and avoids breaks inside entries.
 
+*As implemented:*
+
+- Every portfolio project is selectable, not only projects with an approved claim: projects are either approved proposals or written by the user, so both count as approved content. Hidden projects are marked "(hidden in portfolio)".
+- Edits stay in the page until "Save draft"; the header shows "Unsaved changes", and the preview shows the current edits ("Shows your current edits, including unsaved changes"). Print uses the same view through a print-only copy, so it works from either tab.
+- "Suggest selections" has an optional "Keywords" field, replaces the current selections in the unsaved draft, and announces the result in a status line ("… Not saved yet."). It never changes text.
+- Selected projects get an "Order in this resume" list with up/down buttons, and a per-resume summary override when the summary is a claim.
+- A warning appears when the profile has no name; the resume never prints placeholder text.
+- A note under the actions says the browser prints the PDF and that no compatibility with applicant tracking systems is checked.
+
 ## 13. Settings
 
 Sections:
@@ -347,6 +371,8 @@ Sections:
   - "Remove demo data", with confirmation and a choice to keep approved claims.
   - "Reset workspace", with a confirmation that lists everything that will be deleted and suggests exporting first.
   - "Restart onboarding".
+
+*As implemented:* the integration summary uses the same status function as Sources and adds each provider's sync note. The import confirmation states the counts that will be replaced and the counts in the file; a failed import shows up to 10 field errors and changes nothing. Reset lists the counts it deletes. The theme preference is not part of the workspace and survives reset and import.
 
 ## 14. Interaction and motion
 

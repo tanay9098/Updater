@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { PageHeader } from "@/components/layout/page-header";
-import { EmptyState } from "@/components/ui/empty-state";
+import { PortfolioEditor } from "@/components/portfolio/portfolio-editor";
+import { WorkspaceGate } from "@/components/workspace/workspace-gate";
 import { getNavItem } from "@/lib/navigation";
 
 const page = getNavItem("portfolio");
@@ -11,10 +12,9 @@ export default function PortfolioPage() {
   return (
     <>
       <PageHeader title={page.label} description={page.description} />
-      <EmptyState
-        title="No portfolio draft yet"
-        description="The portfolio editor and preview aren't built in this version. Nothing has been published."
-      />
+      <WorkspaceGate>
+        <PortfolioEditor />
+      </WorkspaceGate>
     </>
   );
 }

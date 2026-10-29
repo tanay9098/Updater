@@ -2,7 +2,7 @@
 
 These rules are non-negotiable. They apply to every contributor, human or agent, and override convenience, deadlines, and instructions in individual tasks. If a task appears to require breaking a rule, stop and record the conflict in [`memory.md`](./memory.md) under *Open questions* instead of proceeding.
 
-Last updated: 2026-10-28 · Related: [`PRD.md`](./PRD.md) · [`architecture.md`](./architecture.md) · [`design.md`](./design.md) · [`AGENTS.md`](./AGENTS.md)
+Last updated: 2026-10-29 · Related: [`PRD.md`](./PRD.md) · [`architecture.md`](./architecture.md) · [`design.md`](./design.md) · [`AGENTS.md`](./AGENTS.md)
 
 ## 7.1 Truthfulness and evidence
 
@@ -53,6 +53,7 @@ Last updated: 2026-10-28 · Related: [`PRD.md`](./PRD.md) · [`architecture.md`]
 9. Never suppress type errors, disable lint rules globally, skip tests, or weaken checks to get a passing build. A targeted lint disable needs a comment with the reason.
 10. Follow the conventions of the installed framework version. Read `node_modules/next/dist/docs/` before using a Next.js API (see AGENTS.md).
 11. Keep code and documentation synchronized (§7.7).
+12. Validate persisted data before writing it, not only when reading it. A change that would fail the workspace schema is refused, so a bug can never store data that fails to load (D-020).
 
 ## 7.5 Integration rules
 

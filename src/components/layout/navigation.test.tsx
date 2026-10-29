@@ -26,6 +26,7 @@ vi.mock("next/link", () => ({
 }));
 
 import { NAV_ITEMS } from "@/lib/navigation";
+import { renderWithWorkspace } from "@/test/render";
 import { MobileNav } from "./mobile-nav";
 import { PageHeader } from "./page-header";
 import { PrimaryNav } from "./primary-nav";
@@ -62,7 +63,7 @@ describe("PrimaryNav", () => {
 describe("MobileNav", () => {
   it("opens a named drawer, closes on Escape, and returns focus", async () => {
     const user = userEvent.setup();
-    render(<MobileNav />);
+    renderWithWorkspace(<MobileNav />);
     const trigger = screen.getByRole("button", { name: "Open navigation" });
     await user.click(trigger);
 
@@ -77,7 +78,7 @@ describe("MobileNav", () => {
 
   it("closes when a navigation link is followed", async () => {
     const user = userEvent.setup();
-    render(<MobileNav />);
+    renderWithWorkspace(<MobileNav />);
     await user.click(screen.getByRole("button", { name: "Open navigation" }));
     const drawer = await screen.findByRole("dialog", { name: "Navigation" });
 

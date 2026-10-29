@@ -3,15 +3,15 @@
 | Field | Value |
 | --- | --- |
 | Version | 0.1.0 |
-| Last updated | 2026-10-28 |
-| Phase | Phase B — Foundation complete (awaiting owner review). Shell, themes, UI components, and validation conventions are implemented; the rest below is the target for Phases C–D. |
+| Last updated | 2026-10-29 |
+| Phase | Phase C — Core functionality complete (awaiting owner review). The local MVP described below is implemented; items tagged [Future] are not. |
 | Related | [`PRD.md`](./PRD.md) · [`design.md`](./design.md) · [`memory.md`](./memory.md) · [`rules.md`](./rules.md) · [`tracker.md`](./tracker.md) |
 
 > **Implementation status convention.** Each component, module, and interface below is tagged:
 > **[Implemented]** exists in the repository and is verified;
 > **[MVP]** is planned for the MVP (Phases B–D) and not yet built;
 > **[Future]** is planned after the MVP (tracker Phase 10).
-> At the end of Phase B, the framework scaffold, the application shell and routes, the theme system, the UI component library, validation helpers, and the test setup are **[Implemented]**.
+> At the end of Phase C, everything tagged [MVP] in §1–§13 is **[Implemented]** except the committed Playwright suite (T9.9, Phase D). Where the implementation differs from the original plan, §5.13 lists the differences.
 
 ## 1. Architecture overview
 
@@ -21,14 +21,14 @@ Principal components:
 
 | Component | Responsibility | Status |
 | --- | --- | --- |
-| App shell and routes (`src/app`, `src/components/layout`) | Layout, navigation, page composition, error boundaries | [Implemented] (page content [MVP]) |
-| UI components (`src/components`) | Accessible presentational building blocks and feature views | Primitives [Implemented]; feature views [MVP] |
+| App shell and routes (`src/app`, `src/components/layout`) | Layout, navigation, page composition, error boundaries | [Implemented] |
+| UI components (`src/components`) | Accessible presentational building blocks and feature views | [Implemented] |
 | Theme (`src/lib/theme`, `src/components/theme`) | Theme rules, bootstrap script, browser store, toggle and Appearance control | [Implemented] |
-| Workspace store (`src/features/workspace`) | Client state container, action dispatch, save status | [MVP] |
-| Domain logic (`src/features/*`, pure modules) | Review transitions, claim provenance, proposal generation, completeness, tailoring | [MVP] |
-| Validation (`src/lib/validation`) | Runtime schemas for persisted, imported, and user-entered data | Conventions and helpers [Implemented]; entity schemas [MVP] |
-| Storage adapter (`src/lib/data`) | Load, validate, migrate, and save the workspace document | [MVP] |
-| Provider registry (`src/lib/providers`) | Source provider definitions: Manual entries, Demo workspace, plus Planned descriptors | [MVP] |
+| Workspace store (`src/features/workspace`) | Client state container, action dispatch, save status | [Implemented] |
+| Domain logic (`src/features/*`, pure modules) | Review transitions, claim provenance, proposal generation, completeness, tailoring | [Implemented] |
+| Validation (`src/lib/validation`) | Runtime schemas for persisted, imported, and user-entered data | [Implemented] |
+| Storage adapter (`src/lib/data`) | Load, validate, migrate, and save the workspace document | [Implemented] |
+| Provider registry (`src/lib/providers`) | Source provider definitions: Manual entries, Demo workspace, plus Planned descriptors | [Implemented] (descriptors only; no provider performs network I/O) |
 | Route handlers / server APIs | Server-side ingestion, OAuth callbacks, persistence | [Future] |
 | GitHub and blog providers | Real ingestion | [Future] |
 | Durable database, accounts | Multi-device persistence | [Future] |
@@ -37,7 +37,7 @@ Principal components:
 
 ```mermaid
 flowchart LR
-  subgraph Browser["Browser — MVP target (Phases B–C)"]
+  subgraph Browser["Browser — implemented (Phases B–C)"]
     direction TB
     Pages["Next.js App Router pages<br/>(src/app)"]
     Views["Feature components<br/>(src/components/*)"]
@@ -81,10 +81,10 @@ Exact versions are pinned in `package.json` and `package-lock.json`. Those files
 | Icons | `lucide-react` | [Implemented] | |
 | Accessible primitives | Radix UI primitives (`radix-ui`), styled with Tailwind | [Implemented] | D-005. Dialog, AlertDialog, DropdownMenu, Tabs, Tooltip, Switch, Checkbox, RadioGroup, Toast, Slot. |
 | Validation | Zod schemas, with types inferred from them | [Implemented] (helpers) | D-006. Entity schemas arrive with T3.1. |
-| Forms | Controlled React components plus shared Zod validation helpers | [MVP] | D-006. `react-hook-form` is only added if forms grow beyond what simple controlled state handles cleanly. |
+| Forms | Controlled React components plus shared Zod validation helpers | [Implemented] | D-006, D-026. Explicit Save per section with an "Unsaved changes" marker. No `react-hook-form`. |
 | Unit and component tests | Vitest, Testing Library, jsdom | [Implemented] | D-007, D-015. `npm test`. Config in `vitest.config.mts`, browser API stubs for Radix in `vitest.setup.ts`. |
-| End-to-end tests | Playwright | [MVP] | D-007. Chromium is pre-installed in the current development container. |
-| Persistence | `window.localStorage`, through a storage adapter | [MVP] | D-003 |
+| End-to-end tests | Playwright | [MVP] | D-007. Journeys A–E were run with a one-off script in Phase C; the committed `e2e/` suite is T9.9. |
+| Persistence | `window.localStorage`, through a storage adapter | [Implemented] | D-003, D-019–D-021 |
 
 ## 3. Application layers
 
@@ -149,24 +149,36 @@ Target structure for the MVP. Folders are created only when they get real conten
 
 Tests live next to the module they test (`*.test.ts`, `*.test.tsx`). End-to-end tests live in `e2e/`.
 
-**Implemented at the end of Phase B:**
+**Implemented at the end of Phase C** (no `src/lib/utils` beyond `cn`, `ids`, `dates`; no `e2e/` yet):
 
 ```
 src/
-├── app/            layout.tsx · page.tsx (Overview) · sources/ · review/ · portfolio/ · resumes/ · settings/
-│                   error.tsx (+ test) · not-found.tsx · globals.css · icon.svg
+├── app/            layout.tsx · page.tsx (Overview) · onboarding/ · sources/ · review/ · portfolio/
+│                   resumes/ · resumes/[resumeId]/ · settings/ · error.tsx · not-found.tsx · globals.css
 ├── components/
-│   ├── providers.tsx          # TooltipProvider, ToastProvider, ThemeSync
-│   ├── layout/                # app-shell, sidebar, top-bar, mobile-nav, primary-nav, page-header, …
-│   ├── theme/                 # theme-script, theme-sync, use-theme, theme-toggle, appearance-settings
-│   └── ui/                    # button, field, input, textarea, select, checkbox, switch, radio-group, tabs,
-│                              # dialog, confirm-dialog, menu, tooltip, status-badge, alert, empty-state,
-│                              # skeleton, panel, toast, spinner
-└── lib/
-    ├── navigation.ts
-    ├── theme/                 # theme.ts (pure), theme-store.ts (DOM)
-    ├── utils/cn.ts
-    └── validation/            # result.ts, url.ts, schemas.ts, field-errors.ts
+│   ├── providers.tsx          # TooltipProvider, ToastProvider, ThemeSync, WorkspaceProvider
+│   ├── layout/                # shell, sidebar, top bar (+ demo indicator), drawer, nav (+ pending count)
+│   ├── theme/  ui/            # unchanged from Phase B (TabsList is now the containing block for sr-only text)
+│   ├── workspace/             # workspace-provider (context + hooks), workspace-gate (loading/recovery),
+│   │                          # save-status, badges, external-link, download
+│   ├── hooks/                 # use-media-query, use-unsaved-warning
+│   ├── dashboard/ sources/ review/ portfolio/ resumes/ settings/ onboarding/
+├── features/
+│   ├── workspace/             # workspace.ts (factory, selectors, activity), store.ts, integrity.ts, transfer.ts
+│   ├── profile/profile.ts     # updateProfile, updateProfileLinks, profileChecklist
+│   ├── sources/               # ingestion.ts, manual.ts, demo.ts
+│   ├── review/                # proposals.ts, transitions.ts
+│   ├── portfolio/portfolio.ts # projects, claims, skills
+│   ├── resumes/               # drafts.ts (incl. buildResumeDocument), tailoring.ts
+│   ├── overview/summary.ts    # next action, recent items, counts
+│   └── onboarding/onboarding.ts
+├── lib/
+│   ├── data/                  # storage.ts, migrations.ts, demo-fixtures.ts
+│   ├── providers/             # types.ts, registry.ts (manual, demo, planned github and rss)
+│   ├── validation/            # result.ts, url.ts, schemas.ts, field-errors.ts, domain.ts (entity schemas)
+│   └── utils/                 # cn.ts, ids.ts, dates.ts
+├── test/                      # fixtures.ts, render.tsx (test helpers)
+└── types/domain.ts            # types inferred from the schemas
 ```
 
 ### 4.1 Cache Components and preserved routes [Implemented]
@@ -284,6 +296,23 @@ interface WorkspaceDocumentV1 {
 
 **Evolution:** each top-level array maps to a future table keyed by `id`, with a `workspace_id`/`user_id` foreign key. The storage adapter (§11) is the only code that knows the physical shape.
 
+
+### 5.13 Implementation notes (Phase C) [Implemented]
+
+The schemas in `src/lib/validation/domain.ts` are authoritative. They differ from §5.1–§5.12 as follows:
+
+- **Strict objects (D-021).** Every persisted object rejects unknown keys, so a token-like field can never be stored.
+- **Cross-reference checks.** `workspaceSchema` rejects a document whose provenance chain is broken: a source item with an unknown source, evidence with an unknown source item, a review item or claim with unknown evidence, duplicate `(sourceId, externalId)`, or a source whose provider can't produce its status (`providerCanProduce`: manual → `connected`, demo → `demo`, planned → nothing).
+- **Soft references** (resume selections, project claim lists, claim → project, pending review targets) are pruned on load and import by `pruneReferences`, with a notice shown to the user.
+- **`ReviewItem`** adds `rationale` (the "Why suggested" sentence), `conflictAcknowledgedAt`, and `resultingSkillId`. For `add_skill`, `proposedText` is the skill name and edits are limited to 40 characters.
+- **`PortfolioProject`** has no `order` field; array order is the display order. Approving a project creates a summary claim referenced by `summaryClaimId`; `summary` holds the user's own text for projects added by hand (D-023).
+- **`PortfolioClaim.projectId`** is optional (D-022). `sourceRemoved` marks demo content kept after its source was removed; such claims may have no evidence.
+- **`Skill`** adds `reviewItemId`, `sourceRemoved`, `createdAt`, and `updatedAt`. Approving a skill whose name already exists (ignoring case) merges the evidence into the existing skill.
+- **`PublishingState`** is exactly `{ publisherId: null, status: 'not_published' }`. The draft save time is the store's save status, not a persisted field.
+- **`ActivityEntry.type`** is one of the values in `ACTIVITY_TYPES`.
+- **Conflicts (D-025)** are detected within one source item: records stating different values for the same single-valued fact key are both marked `conflicting`.
+- **Re-ingestion (D-024)** updates the stored snapshot only.
+
 ## 6. Evidence and provenance
 
 The model keeps five layers that never collapse into one:
@@ -375,7 +404,7 @@ sequenceDiagram
 | `planned` | Not implemented | Planned descriptors (GitHub, blogs) |
 | `demo` | Fixture data, not a real account | Demo provider only |
 
-Manual entries is shown as **"Local: entries you add"**, not as an external account connection.
+Manual entries is shown as **"Local"**, not as an external account connection. The demo provider is `not_connected` until loaded and is labeled **"Not loaded"**, never "Not connected".
 
 ### 7.4 Publishing status
 
@@ -385,20 +414,21 @@ Manual entries is shown as **"Local: entries you add"**, not as an external acco
 
 The MVP keeps everything local, so it exposes **module contracts** rather than HTTP endpoints. No route handlers are added for functionality that can stay in the browser.
 
-### 8.1 MVP module contracts [MVP]
+### 8.1 MVP module contracts [Implemented]
 
 | Area | Contract |
 | --- | --- |
-| Profile | `updateProfile(ws, patch, now): Result<Workspace>` |
-| Sources | `addManualItem(ws, input, now): Result<Workspace>`; `loadDemoWorkspace(ws, now)`; `removeDemoData(ws, { keepApprovedClaims })` |
+| Profile | `updateProfile(ws, input, now)`, `updateProfileLinks(ws, links, now)`, `profileChecklist(ws)` |
+| Sources | `addManualItem(ws, input, now): Result<{ workspace, itemId, reviewItemId }>`; `loadDemoWorkspace(ws, now)`; `removeDemoData(ws, { keepApprovedContent }, now)`; `summarizeDemoData(ws)` |
 | Ingestion | `ingestItems(ws, sourceId, rawItems, now): Result<{ ws, rejected: Rejection[] }>` |
 | Evidence | `evidenceForClaim(ws, claimId)`, `claimsForEvidence(ws, evidenceId)` (selectors) |
-| Review | `editReviewItem`, `approveReviewItem`, `dismissReviewItem`, `restoreReviewItem`, `revertReviewEdit`: each `(ws, id, args, now) => Result<Workspace>` |
-| Portfolio | `updateProject`, `reorderProjects`, `setProjectVisibility`, `deleteProject`, `updateClaimText`, `removeClaim`, `addSkill`, `removeSkill` |
+| Review | `editReviewItem`, `dismissReviewItem`, `restoreReviewItem`, `revertReviewEdit` → `Result<Workspace>`; `approveReviewItem(ws, id, { acknowledgeConflict }, now)` → `Result<{ workspace, claimId?, projectId?, skillId? }>`; `nextStatus`, `canPerform` |
+| Portfolio | `addProject`, `updateProject`, `moveProject`, `setProjectVisibility`, `deleteProject`, `addClaim`, `updateClaimText`, `removeClaim`, `addSkill`, `removeSkill`, `projectSummary`, `projectClaims`, `standaloneClaims` |
 | Publishing | `getPublishingState(ws)`. `publish()` is not available in the MVP. |
-| Resumes | `createResume`, `updateResume`, `duplicateResume`, `deleteResume`, `suggestSelections(ws, targetRole)` |
-| Settings / data | `exportWorkspace(ws): string`; `importWorkspace(json): Result<Workspace>`; `resetWorkspace()` |
-| Storage | `WorkspaceStorage.load(): Result<Workspace | null>`; `save(ws): Result<{ savedAt }>`; `clear()` |
+| Resumes | `createResume`, `updateResume`, `renameResume`, `duplicateResume`, `deleteResume`, `buildResumeDocument(ws, draft)`, `suggestSelections(ws, targetRole, keywords?)` |
+| Settings / data | `exportWorkspace(ws): string`; `importWorkspace(json, now)` (validates, returns readable `details`); reset is `store.reset()`; `completeOnboarding`, `restartOnboarding` |
+| Storage | `WorkspaceStorage.load(): Result<{ workspace | null, notices }>`; `save(ws, now): Result<{ savedAt }>`; `clear()`; `readRecovery()` |
+| Store | `createWorkspaceStore(storage, clock)`: `load`, `apply(op)`, `replace`, `reset`, `retrySave`, `subscribe`/`getSnapshot`. `apply` returns `{ ok: true, savedAt }`, `{ ok: false, applied: false }` (refused, nothing changed), or `{ ok: false, applied: true }` (in memory, not saved). |
 
 `Result<T> = { ok: true; value: T } | { ok: false; error: AppError }`, where `AppError = { code: ErrorCode; message: string; field?: string }`.
 
@@ -487,9 +517,9 @@ This architecture claims no security property beyond what the code implements. B
 | Persists across reloads | Everything in the workspace document, plus the theme |
 | Temporary | Unsaved form input, open dialogs, filters, and toasts (in-memory React state) |
 | Never stored | Tokens, API keys, passwords, or anything secret |
-| Save model | Saves after each successful action. The store exposes `saveStatus: 'idle' | 'saving' | 'saved' | 'error'` with `savedAt` or `error`. |
+| Save model | Saves after each successful action (localStorage is synchronous, so there is no `saving` state). The store exposes `save: 'idle' | 'saved' | 'error'` with `savedAt` or `error`, and refuses any result that fails `workspaceSchema` (D-020). If storage is blocked at load, the app works in memory for the visit and the save status says so. Another tab's save triggers a reload of the stored workspace. |
 | Load model | Read → JSON parse → Zod validate → migrate by `schemaVersion` → hydrate. On failure the raw value is preserved under `updater:workspace:recovery`, and the user is offered export or reset. |
-| SSR | Workspace UI renders client-side after load, with a skeleton until hydration. The server never sees workspace data. |
+| SSR | Workspace UI renders client-side after load (`WorkspaceGate`), with a skeleton until hydration. The server never sees workspace data. `/resumes/[resumeId]` reads its param with `useParams` inside `<Suspense>` (D-028). |
 | Multi-user durability (future) | Server database, accounts, and per-user authorization. A `ServerWorkspaceStorage` adapter implements the same `WorkspaceStorage` interface, with a one-time import from local data. |
 
 ## 12. AI and resume generation
@@ -512,6 +542,8 @@ interface DraftingProvider {
 - A post-check rejects drafts containing numbers or technology names absent from the evidence.
 
 **Resume tailoring (MVP).** `suggestSelections(ws, targetRole)` tokenizes the role title and optional keywords, then scores approved projects, claims, and skills by overlap with their technologies, skill names, and text. It pre-selects the top matches and the user can change any selection. It never writes or alters text.
+
+**Resume tailoring as implemented (D-027).** A small list of role hints widens matching (for example "frontend" adds react, css, typescript). Suggestions replace the current selection in the unsaved draft and are announced; the user saves explicitly.
 
 **Export vs ATS.** The MVP exports through the browser's print dialog with a print stylesheet. It uses semantic HTML, a single column, and real text (no images of text). No ATS compatibility is claimed, because none has been validated.
 
@@ -585,3 +617,15 @@ Full context and status are kept in [`memory.md`](./memory.md#decision-log), usi
 | D-014 | Reset Tailwind's default colors, font sizes, and weights; expose only semantic tokens | Convention only | Makes "no raw colors" enforceable at build time | New visual needs require a token |
 | D-015 | Vitest 4.1 and jsdom 28; `engines.node` raised to `>=20.19.0` | Vitest 5 / jsdom 29 (drop Node 20) | Keep Node 20 LTS supported | Contributors need Node 20.19+ |
 | D-016 | `cn()` joins classes; no `clsx`/`tailwind-merge` | Add both | Two fewer dependencies; components expose variants instead of overrides | Callers must not pass conflicting utilities |
+| D-017 | Cache Components route preservation handled in `PageHeader` focus logic and Suspense-wrapped `usePathname` | Disable Cache Components | Matches the framework's behavior | See §4.1 |
+| D-018 | Settings → Appearance built in Phase B | Wait for Phase C | Depended only on the theme system | — |
+| D-019 | Framework-free external store with `useSyncExternalStore` | Context + `useReducer` | Testable without React; one place reports the real save outcome | Components use `useWorkspaceAction()` |
+| D-020 | Validate every operation result before saving | Validate only on load | A domain bug can't write data that fails to load | Small cost per action |
+| D-021 | Strict schemas for persisted data | Passthrough objects | Unknown (possibly secret) fields are rejected | Schema change per new field |
+| D-022 | Claims may have no project | Force a project | Articles and standalone achievements exist | "Other achievements" section |
+| D-023 | Project summary as a claim (`summaryClaimId`) | Plain text only | Keeps provenance of source-derived descriptions | No `order` field; array order |
+| D-024 | Re-ingestion updates the snapshot only | Regenerate evidence | Claims may reference existing evidence | Changes upstream don't re-propose |
+| D-025 | Deterministic per-item conflict detection | None; AI | Testable, no provider | Cross-item conflicts not detected |
+| D-026 | Explicit Save per editor section | Save on blur | Clear unsaved vs saved states | `beforeunload` warning while dirty |
+| D-027 | Keyword overlap plus role hints for suggestions | Literal overlap only | Role titles rarely share words with technologies | Editorial word list (memory.md open question 6) |
+| D-028 | Client-side `useParams` in Suspense for resume ids | `generateStaticParams` | Ids exist only in the browser | Generic page `h1` |

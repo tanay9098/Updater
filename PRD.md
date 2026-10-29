@@ -7,8 +7,8 @@
 | Product | Updater — developer portfolio auto-updater |
 | Purpose | Defines what Updater must do, for whom, and how the MVP is judged usable. It is the product source of truth for humans and coding agents. |
 | Version | 0.1.0 (initial specification) |
-| Current phase | Phase A — Repository and documentation bootstrap (see [`tracker.md`](./tracker.md)) |
-| Last updated | 2026-10-28 |
+| Current phase | Phase C — Core functionality complete, awaiting owner review (see [`tracker.md`](./tracker.md)) |
+| Last updated | 2026-10-29 |
 | Status | Draft, pending owner review |
 
 Related documents:
@@ -333,6 +333,15 @@ The MVP includes:
 - Settings with theme, privacy, integration summary, JSON export, and reset.
 - Versioned, validated local persistence in browser storage.
 - Documentation and developer setup instructions.
+
+**Scope notes from Phase C** (the scope did not grow or shrink; these clarify how requirements were met):
+
+- Journey A step 1: a first-time user lands on Overview, whose only recommended action is "Get started" (onboarding). No populated dashboard is shown. There is no automatic redirect.
+- FR-SRC-05: removal is implemented for the demo workspace. Manual entries can't be "disconnected" because they aren't a connection.
+- FR-EVID-02 / FR-PORT-04: achievements may exist without a project (for example articles), shown under "Other achievements".
+- FR-RES-02: every portfolio project is selectable, because portfolio projects are either approved proposals or written by the user.
+- FR-RES-05: suggestions use keyword overlap plus a small list of role hints (architecture.md §12).
+- FR-SYNC-02/03: no provider synchronizes in the MVP, so every source states "Not synchronized" with the reason.
 
 ## 12. Future scope
 
