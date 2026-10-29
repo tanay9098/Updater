@@ -34,7 +34,7 @@ The project owner reviews and approves each execution phase before the next one 
 | T1.10 | Project configuration | P0 | Done | T1.9 | `tsconfig` `strict: true`. ESLint flat config. Scripts `dev`, `build`, `start`, `lint`, `typecheck`. `engines.node >= 20.9.0`. System fonts (no network font fetch). |
 | T1.11 | `.gitignore` | P0 | Done | T1.9 | Ignores dependencies, build output, `.env*` except `.env.example`, Playwright output, and editor files. *Verified* with `git check-ignore`. |
 | T1.12 | `.env.example` | P0 | Done | T1.9 | Placeholder-only, commented-out reserved names. States that none are required. |
-| T1.13 | `README.md` | P0 | Done | T1.9 | Accurate description, current status, requirements, install/run/check commands, and doc links. |
+| T1.13 | `README.md` | P0 | Done | T1.9 | Accurate one-paragraph description, requirements, install/run/check commands, and doc links. Status is tracked here and in `memory.md`, not in the README (owner request, 2026-10-29). |
 | T1.14 | Verify development environment | P0 | Done | T1.9–T1.13 | *Verified 2026-10-28:* `npm install` (0 vulnerabilities), `npm run lint` (no errors), `npm run typecheck` (pass), `npm run build` (pass, `/` static), `next dev` served `/` and `/icon.svg` with HTTP 200, `next start` served `/` with HTTP 200. Re-run from a clean `.next`. `next dev` left AGENTS.md unchanged. |
 
 ## Phase 2 — Application foundation
