@@ -1,6 +1,6 @@
 # Updater — Implementation Tracker
 
-Last updated: 2026-10-28 · Related: [`PRD.md`](./PRD.md) §15 (release readiness) · [`memory.md`](./memory.md) · [`rules.md`](./rules.md) §7.7
+Last updated: 2026-10-28 (end of Phase B) · Related: [`PRD.md`](./PRD.md) §15 (release readiness) · [`memory.md`](./memory.md) · [`rules.md`](./rules.md) §7.7
 
 **Status vocabulary:** `Todo` · `In Progress` · `Blocked` · `Done`.
 **Priorities:** `P0` required for the MVP · `P1` expected in the MVP if feasible · `P2` post-MVP.
@@ -12,8 +12,8 @@ The project owner reviews and approves each execution phase before the next one 
 
 | Execution phase | Tracker phases | State |
 | --- | --- | --- |
-| A — Bootstrap | Phase 1 | **Done. Awaiting owner review.** |
-| B — Foundation | Phase 2 | Todo (blocked on approval of A) |
+| A — Bootstrap | Phase 1 | **Done. Approved by the owner (Phase B requested 2026-10-28).** |
+| B — Foundation | Phase 2 (plus T8.2) | **Done. Awaiting owner review.** |
 | C — Core functionality | Phases 3–8 | Todo |
 | D — Verification | Phase 9 | Todo |
 | E — Next priorities | Phase 10 selection | Todo |
@@ -41,14 +41,14 @@ The project owner reviews and approves each execution phase before the next one 
 
 | ID | Task | Pri | Status | Deps | Definition of done |
 | --- | --- | --- | --- | --- | --- |
-| T2.1 | Application shell: sidebar (≥ lg), top bar, mobile drawer, main region, skip link | P0 | Todo | T1.14 | Layout matches design.md §4. Landmarks present. No horizontal scroll at 320 px. |
-| T2.2 | Semantic design tokens in `globals.css` mapped to Tailwind | P0 | Todo | T1.14 | Every token in design.md §2.1 is defined for light and dark. Components use only token utilities. |
-| T2.3 | Bright/dark themes, toggle, persistence, no flash | P0 | Todo | T2.2 | Light by default regardless of OS. Toggle has an accessible name and state. Preference persists in `updater:theme`. A reload in dark paints dark first (checked in a browser). |
-| T2.4 | Navigation and routes: Overview, Sources, Review Queue, Portfolio, Resumes, Settings, plus `error.tsx` and `not-found.tsx` | P0 | Todo | T2.1 | All routes render with a heading and an honest empty state. Active item is marked with `aria-current="page"`. Focus moves to `h1` on navigation. |
-| T2.5 | Accessible UI components (Button, Field, Input, Textarea, Select, Checkbox, Switch, Tabs, Dialog, ConfirmDialog, Menu, Tooltip, Badge/StatusIndicator, EmptyState, Toast, Skeleton) | P0 | Todo | T2.2 | Built on Radix where specified. Keyboard and focus behavior verified in component tests. |
-| T2.6 | Validation conventions (Zod, `Result` type, field error helpers, `safeExternalUrl`) | P0 | Todo | T1.14 | Schemas live in `src/lib/validation`. Unit tests for URL validation and error mapping. |
-| T2.7 | Testing conventions (Vitest, Testing Library, jsdom, `npm test`) | P0 | Todo | T1.14 | `npm test` runs and passes with at least one unit and one component test. Documented in README. |
-| T2.8 | Add dependencies: `lucide-react`, `radix-ui`, `zod`, and test tooling | P0 | Todo | T1.14 | Installed versions recorded in the lockfile. Reasons recorded in memory.md. |
+| T2.1 | Application shell: sidebar (≥ lg), top bar, mobile drawer, main region, skip link | P0 | Done | T1.14 | Layout matches design.md §4. Landmarks present. No horizontal scroll at 320 px. *Verified 2026-10-28* (Playwright on `next start`): skip link is first in tab order and focuses `main`; one `header`, one `main`, `nav` "Primary"; sidebar ≥ lg, drawer below lg (closes on Escape, link, and resize to desktop; focus returns to the trigger); no horizontal scroll at 320/768/1280 px on all six routes in both themes. |
+| T2.2 | Semantic design tokens in `globals.css` mapped to Tailwind | P0 | Done | T1.14 | Every token in design.md §2.1 is defined for light and dark. Components use only token utilities. *Verified:* all §2.1 tokens are defined for both themes, plus five Phase B additions (design.md §2.1). Tailwind's default palette, font sizes, and weights are reset, so only token utilities compile. Contrast of the added pairs computed (≥ 5.3:1). |
+| T2.3 | Bright/dark themes, toggle, persistence, no flash | P0 | Done | T2.2 | Light by default regardless of OS. Toggle has an accessible name and state. Preference persists in `updater:theme`. A reload in dark paints dark first (checked in a browser). *Verified:* unit tests for parse, read, and write, and the bootstrap script. Component tests for the toggle (name, `aria-pressed`, keyboard, persistence, blocked-storage warning). Playwright: light with OS dark preference; dark reload paints dark with all JS bundles blocked; state survives hydration and the dev Strict Mode remount. |
+| T2.4 | Navigation and routes: Overview, Sources, Review Queue, Portfolio, Resumes, Settings, plus `error.tsx` and `not-found.tsx` | P0 | Done | T2.1 | All routes render with a heading and an honest empty state. Active item is marked with `aria-current="page"`. Focus moves to `h1` on navigation. *Verified:* Playwright clicked every sidebar link: correct `h1`, a single `aria-current="page"`, focus on the visible `h1` (also after Back), titles "{Page} · Updater". `/does-not-exist` → 404 page. `error.tsx` component test (retry + Overview link). |
+| T2.5 | Accessible UI components (Button, Field, Input, Textarea, Select, Checkbox, Switch, Tabs, Dialog, ConfirmDialog, Menu, Tooltip, Badge/StatusIndicator, EmptyState, Toast, Skeleton) | P0 | Done | T2.2 | Built on Radix where specified. Keyboard and focus behavior verified in component tests. *Verified:* component tests cover Field wiring (`aria-describedby`, `aria-invalid`, "(required)"), Button loading/`aria-busy`, Checkbox, Switch, Dialog (focus trap, Escape, focus return), ConfirmDialog (Cancel focused first, async confirm, failure shown), Menu and Tabs arrow keys, Toast, Alert roles, LoadingState. Visual check in both themes via a temporary gallery (removed). RadioGroup and Panel were added as well. |
+| T2.6 | Validation conventions (Zod, `Result` type, field error helpers, `safeExternalUrl`) | P0 | Done | T1.14 | Schemas live in `src/lib/validation`. Unit tests for URL validation and error mapping. *Verified:* `src/lib/validation/{result,url,schemas,field-errors}.ts` with unit tests (URL allow-list incl. `javascript:`, `data:`, credentials; nested field paths). |
+| T2.7 | Testing conventions (Vitest, Testing Library, jsdom, `npm test`) | P0 | Done | T1.14 | `npm test` runs and passes with at least one unit and one component test. Documented in README. *Verified:* `npm test` (`vitest run`) passes; config in `vitest.config.mts`, Radix stubs in `vitest.setup.ts`; README documents it. |
+| T2.8 | Add dependencies: `lucide-react`, `radix-ui`, `zod`, and test tooling | P0 | Done | T1.14 | Installed versions recorded in the lockfile. Reasons recorded in memory.md. *Verified:* installed (versions and reasons in memory.md). `npm ci` from the lockfile succeeds with npm 10.9.4; 0 vulnerabilities. |
 
 ## Phase 3 — Profile and domain model
 
@@ -114,7 +114,7 @@ The project owner reviews and approves each execution phase before the next one 
 | ID | Task | Pri | Status | Deps | Definition of done |
 | --- | --- | --- | --- | --- | --- |
 | T8.1 | Profile basics in Settings | P0 | Todo | T3.5 | Edits persist. |
-| T8.2 | Appearance: theme radio group synced with toggle | P0 | Todo | T2.3 | Both controls stay in sync and persist. |
+| T8.2 | Appearance: theme radio group synced with toggle | P0 | Done | T2.3 | Both controls stay in sync and persist. *Built early in Phase B (D-018). Verified:* component test and Playwright show the radio group and the top-bar toggle stay in sync and persist. |
 | T8.3 | Integration status summary | P0 | Todo | T4.1 | Mirrors the Sources statuses exactly. |
 | T8.4 | Privacy section with accurate text | P0 | Todo | T3.3 | Text matches actual behavior (FR-SET-03). |
 | T8.5 | Export JSON, import with validation, reset, remove demo data, restart onboarding | P0 (import P1) | Todo | T3.3 | FR-DATA-04, FR-SET-02 met. A failed import changes nothing (test). |
@@ -155,4 +155,4 @@ These stay open until actually implemented and verified.
 
 ## Next recommended task
 
-After the owner approves Phase A: start **Phase B** with **T2.8 → T2.2 → T2.3 → T2.1 → T2.4 → T2.5 → T2.6 → T2.7**.
+After the owner approves Phase B: start **Phase C** with **T3.1** (domain models and Zod schemas, built on `src/lib/validation`), then **T3.2 → T3.3 → T3.4** (workspace document, storage adapter, store with real save status). The sidebar footer's save status (design.md §4) becomes possible with T3.4.

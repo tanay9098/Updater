@@ -4,14 +4,14 @@
 | --- | --- |
 | Version | 0.1.0 |
 | Last updated | 2026-10-28 |
-| Phase | Phase A — Bootstrap complete. The application architecture below is the target for Phases B–D. |
+| Phase | Phase B — Foundation complete (awaiting owner review). Shell, themes, UI components, and validation conventions are implemented; the rest below is the target for Phases C–D. |
 | Related | [`PRD.md`](./PRD.md) · [`design.md`](./design.md) · [`memory.md`](./memory.md) · [`rules.md`](./rules.md) · [`tracker.md`](./tracker.md) |
 
 > **Implementation status convention.** Each component, module, and interface below is tagged:
 > **[Implemented]** exists in the repository and is verified;
 > **[MVP]** is planned for the MVP (Phases B–D) and not yet built;
 > **[Future]** is planned after the MVP (tracker Phase 10).
-> At the end of Phase A, only the framework scaffold, configuration, and a static bootstrap page are **[Implemented]**.
+> At the end of Phase B, the framework scaffold, the application shell and routes, the theme system, the UI component library, validation helpers, and the test setup are **[Implemented]**.
 
 ## 1. Architecture overview
 
@@ -21,11 +21,12 @@ Principal components:
 
 | Component | Responsibility | Status |
 | --- | --- | --- |
-| App shell and routes (`src/app`) | Layout, navigation, page composition, error boundaries | Scaffold [Implemented]; shell [MVP] |
-| UI components (`src/components`) | Accessible presentational building blocks and feature views | [MVP] |
+| App shell and routes (`src/app`, `src/components/layout`) | Layout, navigation, page composition, error boundaries | [Implemented] (page content [MVP]) |
+| UI components (`src/components`) | Accessible presentational building blocks and feature views | Primitives [Implemented]; feature views [MVP] |
+| Theme (`src/lib/theme`, `src/components/theme`) | Theme rules, bootstrap script, browser store, toggle and Appearance control | [Implemented] |
 | Workspace store (`src/features/workspace`) | Client state container, action dispatch, save status | [MVP] |
 | Domain logic (`src/features/*`, pure modules) | Review transitions, claim provenance, proposal generation, completeness, tailoring | [MVP] |
-| Validation (`src/lib/validation`) | Runtime schemas for persisted, imported, and user-entered data | [MVP] |
+| Validation (`src/lib/validation`) | Runtime schemas for persisted, imported, and user-entered data | Conventions and helpers [Implemented]; entity schemas [MVP] |
 | Storage adapter (`src/lib/data`) | Load, validate, migrate, and save the workspace document | [MVP] |
 | Provider registry (`src/lib/providers`) | Source provider definitions: Manual entries, Demo workspace, plus Planned descriptors | [MVP] |
 | Route handlers / server APIs | Server-side ingestion, OAuth callbacks, persistence | [Future] |
@@ -74,14 +75,14 @@ Exact versions are pinned in `package.json` and `package-lock.json`. Those files
 | Framework | Next.js, App Router, Turbopack (dev and build) | [Implemented] | Scaffolded with `create-next-app`. Cache Components enabled (scaffold default, D-011). |
 | UI runtime | React 19 | [Implemented] | |
 | Language | TypeScript, `strict: true` | [Implemented] | `npm run typecheck` runs `next typegen && tsc --noEmit`. |
-| Styling | Tailwind CSS v4 via `@tailwindcss/turbopack`, with semantic CSS custom properties | [Implemented] (baseline) | The full token set is [MVP] (design.md §2). |
+| Styling | Tailwind CSS v4 via `@tailwindcss/turbopack`, with semantic CSS custom properties | [Implemented] | Full token set in `globals.css`. Default palette, font sizes, and weights are reset so only tokens are usable (D-014). |
 | Fonts | System font stacks; no web-font download | [Implemented] | D-002 |
 | Linting | ESLint 9 with `eslint-config-next` (core-web-vitals and TypeScript) | [Implemented] | |
-| Icons | `lucide-react` | [MVP] | Added in Phase B |
-| Accessible primitives | Radix UI primitives (`radix-ui`), styled with Tailwind | [MVP] | D-005. Dialog, AlertDialog, DropdownMenu, Tabs, Tooltip, Switch, Checkbox, Toast. |
-| Validation | Zod schemas, with types inferred from them | [MVP] | D-006 |
+| Icons | `lucide-react` | [Implemented] | |
+| Accessible primitives | Radix UI primitives (`radix-ui`), styled with Tailwind | [Implemented] | D-005. Dialog, AlertDialog, DropdownMenu, Tabs, Tooltip, Switch, Checkbox, RadioGroup, Toast, Slot. |
+| Validation | Zod schemas, with types inferred from them | [Implemented] (helpers) | D-006. Entity schemas arrive with T3.1. |
 | Forms | Controlled React components plus shared Zod validation helpers | [MVP] | D-006. `react-hook-form` is only added if forms grow beyond what simple controlled state handles cleanly. |
-| Unit and component tests | Vitest, Testing Library, jsdom | [MVP] | D-007 |
+| Unit and component tests | Vitest, Testing Library, jsdom | [Implemented] | D-007, D-015. `npm test`. Config in `vitest.config.mts`, browser API stubs for Radix in `vitest.setup.ts`. |
 | End-to-end tests | Playwright | [MVP] | D-007. Chromium is pre-installed in the current development container. |
 | Persistence | `window.localStorage`, through a storage adapter | [MVP] | D-003 |
 
@@ -90,18 +91,20 @@ Exact versions are pinned in `package.json` and `package-lock.json`. Those files
 | Layer | Location | Responsibilities | Must not |
 | --- | --- | --- | --- |
 | Routing and page composition | `src/app/**` | Route segments, layouts, metadata, `error.tsx`/`not-found.tsx`. Pages compose feature components. | Contain business rules |
-| UI components | `src/components/ui` | Generic, accessible, presentational primitives (Button, Field, Dialog, Badge…) | Import workspace state or domain modules |
+| UI components | `src/components/ui` | Generic, accessible, presentational primitives (Button, Field, Dialog, StatusBadge…) | Import workspace state or domain modules |
+| Theme | `src/lib/theme` (rules, bootstrap script, DOM store), `src/components/theme` (hooks, toggle, Appearance) | Theme state lives on `<html data-theme>` and is read with `useSyncExternalStore` | Use React context for theme state, or read the OS preference |
 | Feature components | `src/components/{layout,dashboard,sources,review,portfolio,resumes,settings}` | Feature-specific views. Read state through workspace hooks and dispatch actions. | Mutate state directly or bypass domain transitions |
 | Feature modules (domain logic) | `src/features/<feature>/*.ts` | Pure functions: state transitions, proposal generation, completeness, tailoring. Unit-tested. | Import React, Next.js, or browser APIs |
 | Workspace state | `src/features/workspace` | React context and reducer composed from domain functions, persistence scheduling, save status | Contain feature rules beyond orchestration |
 | Domain types | `src/types` | TypeScript types (inferred from schemas) shared across layers | Contain logic |
-| Validation | `src/lib/validation` | Zod schemas for persisted data, imports, and form input. URL and text helpers. | Depend on UI |
+| Validation | `src/lib/validation` | Zod schemas for persisted data, imports, and form input. URL and text helpers. The `Result`/`AppError` types (`result.ts`), `validate()` and `toFieldErrors()` (`field-errors.ts`), `safeExternalUrl()` (`url.ts`). | Depend on UI |
 | Persistence | `src/lib/data` | `WorkspaceStorage` adapter: load, validate, migrate, save. Demo fixtures. | Store secrets |
 | Source-provider adapters | `src/lib/providers` | Provider definitions, capability metadata, and (for real providers) fetch and normalize | Write to storage directly. Providers return data, and the store records it. |
 | Authentication and authorization | none yet | [Future] server-side session and ownership checks (§10) | |
 | AI-provider adapters | none yet | [Future] optional `DraftingProvider` (§12) | |
 | Publishing adapters | none yet | [Future] `Publisher` (§13) | |
-| Utilities | `src/lib/utils` | IDs, dates, class names, small helpers | Accumulate unrelated logic |
+| Utilities | `src/lib/utils` | IDs, dates, class names (`cn`), small helpers | Accumulate unrelated logic |
+| Navigation config | `src/lib/navigation.ts` | Labels, routes, and page descriptions for the six destinations; active-route matching | Import React |
 
 Business logic stays independent of presentation. Every rule in §7 lives in a pure module and can be tested without rendering.
 
@@ -145,6 +148,43 @@ Target structure for the MVP. Folders are created only when they get real conten
 ```
 
 Tests live next to the module they test (`*.test.ts`, `*.test.tsx`). End-to-end tests live in `e2e/`.
+
+**Implemented at the end of Phase B:**
+
+```
+src/
+├── app/            layout.tsx · page.tsx (Overview) · sources/ · review/ · portfolio/ · resumes/ · settings/
+│                   error.tsx (+ test) · not-found.tsx · globals.css · icon.svg
+├── components/
+│   ├── providers.tsx          # TooltipProvider, ToastProvider, ThemeSync
+│   ├── layout/                # app-shell, sidebar, top-bar, mobile-nav, primary-nav, page-header, …
+│   ├── theme/                 # theme-script, theme-sync, use-theme, theme-toggle, appearance-settings
+│   └── ui/                    # button, field, input, textarea, select, checkbox, switch, radio-group, tabs,
+│                              # dialog, confirm-dialog, menu, tooltip, status-badge, alert, empty-state,
+│                              # skeleton, panel, toast, spinner
+└── lib/
+    ├── navigation.ts
+    ├── theme/                 # theme.ts (pure), theme-store.ts (DOM)
+    ├── utils/cn.ts
+    └── validation/            # result.ts, url.ts, schemas.ts, field-errors.ts
+```
+
+### 4.1 Cache Components and preserved routes [Implemented]
+
+With `cacheComponents` enabled (D-011), Next.js keeps up to three visited routes mounted but hidden (React `<Activity>`, `display: none`) instead of unmounting them. Consequences for this codebase:
+
+- **Route focus** lives in `PageHeader`. It focuses the `h1` in an effect when the page becomes visible, which covers both new and restored pages. A module-level "last focused path" prevents moving focus on the initial load and on Strict Mode's effect re-run.
+- **Transient UI** (open menus, dialogs inside pages) must reset when hidden: close it in a `useLayoutEffect` cleanup or with `Link`'s `onNavigate` (the mobile drawer uses `onNavigate`).
+- **Tests and DOM queries** must prefer accessibility-tree queries (`getByRole`), which ignore hidden routes.
+- **`usePathname`** may suspend on routes with dynamic params not covered by `generateStaticParams` (for example `/resumes/[resumeId]`). The navigation components wrap it in `<Suspense>` with a usable fallback, so the shell stays prerenderable.
+
+### 4.2 Theme flow [Implemented]
+
+1. The root layout renders `<html data-theme="light" suppressHydrationWarning>` and an inline script in `<head>` (`THEME_BOOTSTRAP_SCRIPT`). Before first paint, the script copies a valid stored value from `localStorage["updater:theme"]` to `data-theme`.
+2. Tokens in `globals.css` are defined for `:root, [data-theme="light"]` and `[data-theme="dark"]`.
+3. React reads the theme with `useSyncExternalStore`: the server snapshot is `light`, and the client snapshot is the attribute, observed with a `MutationObserver`. No hydration mismatch occurs.
+4. `setTheme()` applies the attribute and returns a `Result` from the storage write. The UI warns when the choice cannot persist.
+5. `ThemeSync` re-applies the stored value after hydration (React's development remount resets `<html>` attributes) and listens for `storage` events from other tabs.
 
 ## 5. Domain model
 
@@ -541,3 +581,7 @@ Full context and status are kept in [`memory.md`](./memory.md#decision-log), usi
 | D-010 | Demo fixtures use fictional names and reserved `example.com` URLs, flagged `isDemo` | Real public repositories as examples | Cannot be mistaken for the user's or anyone's real activity | Demo links lead to placeholder pages |
 | D-011 | Keep `cacheComponents` (scaffold default) enabled | Disable it | Framework-recommended default. Workspace UI is client-side. | Server components must follow Cache Components rules |
 | D-012 | Keep the Next.js-managed block in `AGENTS.md` | Remove it | `next dev` re-adds it, and it points agents at version-matched docs | AGENTS.md contains one managed section |
+| D-013 | Theme toggle: constant name "Dark theme" + `aria-pressed`; the tooltip names the action | Label that changes with state plus `aria-pressed` (original design) | WAI-ARIA: a toggle button's name must not change with its state | design.md §2 updated |
+| D-014 | Reset Tailwind's default colors, font sizes, and weights; expose only semantic tokens | Convention only | Makes "no raw colors" enforceable at build time | New visual needs require a token |
+| D-015 | Vitest 4.1 and jsdom 28; `engines.node` raised to `>=20.19.0` | Vitest 5 / jsdom 29 (drop Node 20) | Keep Node 20 LTS supported | Contributors need Node 20.19+ |
+| D-016 | `cn()` joins classes; no `clsx`/`tailwind-merge` | Add both | Two fewer dependencies; components expose variants instead of overrides | Callers must not pass conflicting utilities |
