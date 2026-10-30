@@ -23,7 +23,8 @@ import { saveFailureToast, useWorkspace, useWorkspaceAction, useWorkspaceStore }
 
 const MAX_IMPORT_BYTES = 4_000_000;
 
-function counts(ws: Workspace): string {
+/** A plain-language list of what a workspace holds, for confirmations. */
+export function counts(ws: Workspace): string {
   const parts = [
     ws.profile ? "your profile" : null,
     `${ws.sourceItems.length} source items`,
@@ -182,7 +183,7 @@ export function DataSettings() {
       />
       <DataRow
         title="Reset workspace"
-        description="Deletes everything Updater stores in this browser except your theme."
+        description="Deletes your workspace stored in this browser. Your theme is kept."
         action={
           <ConfirmDialog
             trigger={

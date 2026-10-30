@@ -5,7 +5,8 @@ import { formatTime } from "@/lib/utils/dates";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
-import { saveFailureToast, useWorkspaceSnapshot, useWorkspaceStore } from "./workspace-provider";
+import { useAccount } from "@/components/account/account-provider";
+import { saveFailureToast, useOptionalWorkspaceStore, useWorkspaceSnapshot } from "./workspace-provider";
 
 /**
  * Save status (design.md §5): "Saved locally · 14:02", or "Not saved" with
@@ -13,10 +14,14 @@ import { saveFailureToast, useWorkspaceSnapshot, useWorkspaceStore } from "./wor
  */
 export function SaveStatus({ compact = false }: { compact?: boolean }) {
   const snapshot = useWorkspaceSnapshot();
-  const store = useWorkspaceStore();
+  const store = useOptionalWorkspaceStore();
+  const { snapshot: account } = useAccount();
   const { notify } = useToast();
 
-  if (snapshot.phase === "loading") {
+  if (!store && account.phase === "ready" && account.state.status !== "local" && account.state.status !== "signed_in") {
+    return <StatusLine icon="drive" text="No workspace open" />;
+  }
+  if (!store || snapshot.phase === "loading") {
     return <StatusLine icon="drive" text="Loading workspace…" />;
   }
   if (snapshot.phase === "recovery") {

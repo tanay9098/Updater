@@ -1,6 +1,6 @@
 # Updater — Implementation Tracker
 
-Last updated: 2026-10-29 (end of Phase C) · Related: [`PRD.md`](./PRD.md) §15 (release readiness) · [`memory.md`](./memory.md) · [`rules.md`](./rules.md) §7.7
+Last updated: 2026-10-30 (Google sign-in, T10.5) · Related: [`PRD.md`](./PRD.md) §15 (release readiness) · [`memory.md`](./memory.md) · [`rules.md`](./rules.md) §7.7
 
 **Status vocabulary:** `Todo` · `In Progress` · `Blocked` · `Done`.
 **Priorities:** `P0` required for the MVP · `P1` expected in the MVP if feasible · `P2` post-MVP.
@@ -16,7 +16,7 @@ The project owner reviews and approves each execution phase before the next one 
 | B — Foundation | Phase 2 (plus T8.2) | **Done. Approved by the owner (Phase C requested 2026-10-29).** |
 | C — Core functionality | Phases 3–8 | **Done. Awaiting owner review.** |
 | D — Verification | Phase 9 | Todo |
-| E — Next priorities | Phase 10 selection | Todo |
+| E — Next priorities | Phase 10 selection | Todo. T10.5 was started early at the owner's explicit request (2026-10-30). |
 
 ## Phase 1 — Repository and documentation bootstrap
 
@@ -146,7 +146,7 @@ These stay open until actually implemented and verified.
 | T10.2 | GitHub OAuth (authorization code + PKCE, server-side tokens) | P2 | Todo | T10.1, T10.5 | Real authorization. Disconnect revokes. No token in the browser. |
 | T10.3 | Pull-request and contribution ingestion | P2 | Todo | T10.1 | Merged PRs become evidence with URLs. |
 | T10.4 | Durable server persistence (`ServerWorkspaceStorage`) | P2 | Todo | T10.5 | Same interface as local storage. One-time local import. |
-| T10.5 | User authentication (established library) | P2 | Todo | MVP | Server-side authorization on every request. |
+| T10.5 | User authentication (established library): optional Google sign-in, per-account workspaces | P2 | In Progress | MVP | Server-side authorization on every request. Each account's portfolio and resumes come only from its own workspace (FR-AUTH-01–04). *Verified 2026-10-30:* Auth.js v5 Google provider (D-029); `src/proxy.ts` gates every request (`decideAccess` unit-tested for every mode); account-scoped storage keys and gate (unit and component tests: a second account sees none of the first's data, signed-out or unknown account opens nothing); Playwright on `next start` in local, configured (dummy Google client, real Auth.js session cookies), and partly configured modes (see memory.md change history). *Remaining for Done:* the owner signs in once with a real Google OAuth client (consent screen → callback → workspace opens). |
 | T10.6 | Scheduled synchronization / background jobs | P2 | Todo | T10.1, T10.4 | Recorded sync results. Backoff on failures. |
 | T10.7 | AI-assisted drafting (optional, server-side, evidence-grounded) | P2 | Todo | MVP | rules.md §7.6 enforced, including a post-check that rejects unsupported numbers. |
 | T10.8 | Blog integrations (RSS/Atom, DEV, Hashnode) | P2 | Todo | MVP | SSRF-safe fetching. Articles become evidence. |
@@ -154,5 +154,7 @@ These stay open until actually implemented and verified.
 | T10.10 | Additional export formats (JSON Resume, generated PDF) | P2 | Todo | Phase 7 | Output validated. No ATS claim without validation. |
 
 ## Next recommended task
+
+**T10.5 follow-up:** the owner configures a Google OAuth client (README → "Google sign-in") and confirms one real sign-in, then T10.5 can be marked Done. The natural next step for accounts is **T10.4** (server persistence, so a workspace follows its account across devices); it needs a database decision first (memory.md open question 7).
 
 After the owner approves Phase C: start **Phase D** with **T9.9** (commit the Playwright Journey A–E run as an `e2e/` suite; a one-off script already passes in Chromium), **T9.7** (accessibility review with an axe scan), and **T9.11** (documentation sync review).

@@ -1,22 +1,34 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 import { Download } from "lucide-react";
+import { AccountRequired } from "@/components/account/account-required";
+import { useAccount } from "@/components/account/account-provider";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { LoadingState, Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
 import { downloadText } from "./download";
-import { useWorkspaceSnapshot, useWorkspaceStore } from "./workspace-provider";
+import { useWorkspaceScopeKey, useWorkspaceSnapshot, useWorkspaceStore } from "./workspace-provider";
 
 /**
  * Renders its children once the workspace is loaded. Shows skeletons while
  * it hydrates and a recovery screen when the stored data can't be read
  * (FR-DATA-02): export the raw data, or reset.
+ *
+ * With sign-in configured, nothing opens until the server confirms the
+ * account; signed out, it explains how to sign in instead (D-030). The
+ * children are keyed by account, so no form state carries over when the
+ * account changes.
  */
 export function WorkspaceGate({ children, fallback }: { children: ReactNode; fallback?: ReactNode }) {
+  const { snapshot: account } = useAccount();
+  const scope = useWorkspaceScopeKey();
   const snapshot = useWorkspaceSnapshot();
+  if (account.phase === "error") return <AccountRequired reason="error" message={account.message} />;
+  if (account.phase === "ready" && account.state.status === "signed_out") return <AccountRequired reason="signed_out" />;
+  if (account.phase === "ready" && account.state.status === "unavailable") return <AccountRequired reason="unavailable" />;
   if (snapshot.phase === "loading") return <>{fallback ?? <PageSkeleton />}</>;
   if (snapshot.phase === "recovery") return <RecoveryScreen message={snapshot.error.message} />;
   return (
@@ -30,7 +42,7 @@ export function WorkspaceGate({ children, fallback }: { children: ReactNode; fal
           </ul>
         </Alert>
       ) : null}
-      {children}
+      <Fragment key={scope ?? "injected"}>{children}</Fragment>
     </>
   );
 }
