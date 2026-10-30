@@ -9,7 +9,7 @@ Updater helps developers keep an **evidence-backed** portfolio and role-specific
 - Tailwind CSS v4
 - ESLint (`eslint-config-next`)
 - Radix UI primitives (`radix-ui`), Lucide icons (`lucide-react`), Zod
-- Auth.js (`next-auth` v5) for optional Google sign-in
+- Auth.js (`next-auth` v5) for Google sign-in (required)
 - Vitest, Testing Library, and jsdom for unit, component, and integration tests
 
 Exact versions are in `package.json` and `package-lock.json`.
@@ -19,17 +19,17 @@ Exact versions are in `package.json` and `package-lock.json`.
 - Node.js ≥ 20.19 (developed with Node 22). The test tooling (Vite 8, jsdom 28) needs 20.19 or later.
 - npm (a `package-lock.json` is committed)
 
-No environment variables, accounts, or external services are required. Without them, Updater runs in local mode: one workspace stored in the browser, no sign-in.
+- A Google OAuth client and an `AUTH_SECRET`. Sign-in with Google is required to use Updater; see below. (`npm test`, `npm run lint`, `npm run typecheck`, and `npm run build` need no credentials.)
 
-## Google sign-in (optional)
+## Google sign-in (required)
 
-With sign-in turned on, every page requires a Google account, and each account gets its own workspace: a portfolio and resumes built only from that account's data. There is no separate sign-up; the first sign-in creates the account.
+Every page requires a Google account, and each account gets its own workspace: a portfolio and resumes built only from that account's data. There is no separate sign-up; the first sign-in creates the account. There is no way to use the app without signing in.
 
 1. In Google Cloud Console, create an OAuth client ID of type **Web application**, with the authorized redirect URI `http://localhost:3000/api/auth/callback/google` (add your production origin's `/api/auth/callback/google` too).
 2. Copy `.env.example` to `.env.local` and set `AUTH_SECRET` (for example `openssl rand -base64 33`), `AUTH_GOOGLE_ID`, and `AUTH_GOOGLE_SECRET`. When self-hosting with `npm run start`, also set `AUTH_TRUST_HOST=true` or `AUTH_URL`.
 3. Restart the dev server and open http://localhost:3000. You're sent to `/sign-in`.
 
-Setting only some of the variables blocks the app until all are set, rather than silently falling back to local mode. The workspace itself still lives in the browser, stored under the signed-in account; it doesn't follow the account to another device (export and import move it). A workspace created before sign-in was turned on can be moved into an account from **Settings → Account**.
+Until all three variables are set, every page redirects to `/sign-in`, which says sign-in isn't available (and, in development, which variables are missing). The workspace itself still lives in the browser, stored under the signed-in account; it doesn't follow the account to another device (export and import move it). A workspace created before sign-in became required can be moved into an account from **Settings → Account**.
 
 ## Getting started
 
@@ -41,7 +41,7 @@ npm install
 npm run dev
 ```
 
-Then open http://localhost:3000 and choose **Get started**. To explore quickly, pick "Explore with demo data" in the last step, then approve a few proposals in the Review Queue.
+Set up Google sign-in first (above). Then open http://localhost:3000, sign in with Google, and choose **Get started**. To explore quickly, pick "Explore with demo data" in the last step, then approve a few proposals in the Review Queue.
 
 ## Scripts
 

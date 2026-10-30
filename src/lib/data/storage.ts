@@ -12,20 +12,27 @@ import { parseWorkspaceDocument } from "@/features/workspace/transfer";
  * When the stored value can't be used, the raw string is copied to the
  * recovery key before anything else happens, so the user can export it.
  *
- * Each signed-in account has its own pair of keys (D-030), so one account's
- * workspace is never loaded, shown, or overwritten for another. Local mode
- * (sign-in not configured) keeps the original unscoped keys.
+ * Every workspace belongs to a signed-in account and has its own pair of
+ * keys (D-030, D-031), so one account's workspace is never loaded, shown,
+ * or overwritten for another.
  */
 
+/** Base key names. Unsuffixed, they hold a workspace saved before sign-in was compulsory. */
 export const WORKSPACE_STORAGE_KEY = "updater:workspace:v1";
 export const WORKSPACE_RECOVERY_KEY = "updater:workspace:recovery";
 
 export type WorkspaceStorageKeys = { workspace: string; recovery: string };
 
-const LOCAL_KEYS: WorkspaceStorageKeys = { workspace: WORKSPACE_STORAGE_KEY, recovery: WORKSPACE_RECOVERY_KEY };
+/**
+ * Where versions before compulsory sign-in stored the single, unowned
+ * workspace. Only read to offer moving it into an account (Settings → Account).
+ */
+export const LEGACY_WORKSPACE_KEYS: WorkspaceStorageKeys = {
+  workspace: WORKSPACE_STORAGE_KEY,
+  recovery: WORKSPACE_RECOVERY_KEY,
+};
 
 export function workspaceStorageKeys(scope: WorkspaceScope): WorkspaceStorageKeys {
-  if (scope.kind === "local") return LOCAL_KEYS;
   const account = encodeURIComponent(scope.accountId);
   return {
     workspace: `${WORKSPACE_STORAGE_KEY}:account:${account}`,
@@ -60,7 +67,7 @@ function storageError(error: unknown): AppError {
 
 export function createWorkspaceStorage(
   getStorage: () => KeyValueStorage | null,
-  keys: WorkspaceStorageKeys = LOCAL_KEYS,
+  keys: WorkspaceStorageKeys,
 ): WorkspaceStorage {
   function resolve(): KeyValueStorage | null {
     try {
@@ -133,11 +140,17 @@ export function createWorkspaceStorage(
   };
 }
 
-export function browserWorkspaceStorage(scope: WorkspaceScope = { kind: "local" }): WorkspaceStorage {
-  return createWorkspaceStorage(
-    () => (typeof window === "undefined" ? null : window.localStorage),
-    workspaceStorageKeys(scope),
-  );
+function browserStorage(): KeyValueStorage | null {
+  return typeof window === "undefined" ? null : window.localStorage;
+}
+
+export function browserWorkspaceStorage(scope: WorkspaceScope): WorkspaceStorage {
+  return createWorkspaceStorage(browserStorage, workspaceStorageKeys(scope));
+}
+
+/** The unowned workspace from before compulsory sign-in, if this browser has one. */
+export function legacyBrowserWorkspaceStorage(): WorkspaceStorage {
+  return createWorkspaceStorage(browserStorage, LEGACY_WORKSPACE_KEYS);
 }
 
 /** In-memory storage for tests. */

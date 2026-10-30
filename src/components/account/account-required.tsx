@@ -8,7 +8,7 @@ import { useAccount } from "./account-provider";
 
 /**
  * Shown instead of the workspace when no account may open it: signed out
- * (for example in another tab), sign-in misconfigured, or the account
+ * (for example in another tab), sign-in not configured, or the account
  * couldn't be checked. It never falls back to another workspace.
  */
 export function AccountRequired({
@@ -39,7 +39,7 @@ export function AccountRequired({
     return (
       <EmptyState
         title="Sign-in isn't available"
-        description="Sign-in is turned on for this installation but isn't fully configured, so workspaces can't be opened. Ask the person who runs it to finish the setup."
+        description="Updater requires a Google sign-in, but this server isn't configured for it yet, so workspaces can't be opened. Ask the person who runs it to finish the setup."
       />
     );
   }

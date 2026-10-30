@@ -14,7 +14,13 @@ vi.mock("next/link", () => ({
 
 import { signOutOfAccount } from "@/lib/auth/actions";
 import type { AccountState } from "@/lib/auth/account";
-import { createMemoryKeyValueStorage, createWorkspaceStorage, WORKSPACE_STORAGE_KEY, workspaceStorageKeys } from "@/lib/data/storage";
+import {
+  createMemoryKeyValueStorage,
+  createWorkspaceStorage,
+  LEGACY_WORKSPACE_KEYS,
+  WORKSPACE_STORAGE_KEY,
+  workspaceStorageKeys,
+} from "@/lib/data/storage";
 import { updateProfile } from "@/features/profile/profile";
 import { createEmptyWorkspace } from "@/features/workspace/workspace";
 import { must, T0, workspaceWithProfile } from "@/test/fixtures";
@@ -59,7 +65,7 @@ function renderApp(ui: ReactNode, load: () => Promise<AccountSnapshot>) {
 
 const ready = (state: AccountState) => async (): Promise<AccountSnapshot> => ({ phase: "ready", state });
 
-describe("account-scoped workspaces (T10.5, D-030)", () => {
+describe("account-scoped workspaces (T10.5, D-030, D-031)", () => {
   it("opens only the signed-in account's workspace", async () => {
     storeInBrowser(workspaceStorageKeys({ kind: "account", accountId: "google:111" }).workspace, "Alice Example");
     storeInBrowser(workspaceStorageKeys({ kind: "account", accountId: "google:222" }).workspace, "Bob Example");
@@ -123,7 +129,8 @@ describe("account-scoped workspaces (T10.5, D-030)", () => {
     expect(screen.queryByTestId("profile-name")).not.toBeInTheDocument();
   });
 
-  it("explains an incomplete sign-in setup instead of opening anything", async () => {
+  it("explains missing sign-in configuration instead of opening anything", async () => {
+    storeInBrowser(WORKSPACE_STORAGE_KEY, "Pre-sign-in user");
     renderApp(
       <WorkspaceGate>
         <ProfileName />
@@ -131,17 +138,18 @@ describe("account-scoped workspaces (T10.5, D-030)", () => {
       ready({ status: "unavailable" }),
     );
     expect(await screen.findByRole("heading", { name: "Sign-in isn't available" })).toBeInTheDocument();
+    expect(screen.queryByTestId("profile-name")).not.toBeInTheDocument();
   });
 
-  it("uses the original unscoped workspace in local mode", async () => {
-    storeInBrowser(WORKSPACE_STORAGE_KEY, "Local user");
+  it("never opens the unowned pre-sign-in workspace, even for a new account", async () => {
+    storeInBrowser(WORKSPACE_STORAGE_KEY, "Pre-sign-in user");
     renderApp(
       <WorkspaceGate>
         <ProfileName />
       </WorkspaceGate>,
-      ready({ status: "local" }),
+      ready(ALICE),
     );
-    expect(await screen.findByTestId("profile-name")).toHaveTextContent("Local user");
+    expect(await screen.findByTestId("profile-name")).toHaveTextContent("No profile");
   });
 });
 
@@ -158,8 +166,8 @@ describe("AccountMenu", () => {
     await waitFor(() => expect(signOutOfAccount).toHaveBeenCalledOnce());
   });
 
-  it("renders nothing in local mode", async () => {
-    renderApp(<AccountMenu />, ready({ status: "local" }));
+  it("renders nothing while signed out", async () => {
+    renderApp(<AccountMenu />, ready({ status: "signed_out" }));
     await act(async () => {});
     expect(screen.queryByRole("button", { name: /^Account/ })).not.toBeInTheDocument();
   });
@@ -185,7 +193,7 @@ describe("Settings → Account", () => {
   it("moves a workspace saved before sign-in into the account and removes the unowned copy", async () => {
     const user = userEvent.setup();
     const legacyMemory = createMemoryKeyValueStorage({ [WORKSPACE_STORAGE_KEY]: JSON.stringify(workspaceNamed("Pre-sign-in user")) });
-    const legacy = createWorkspaceStorage(() => legacyMemory);
+    const legacy = createWorkspaceStorage(() => legacyMemory, LEGACY_WORKSPACE_KEYS);
     const { memory } = renderWithWorkspace(
       <WorkspaceGate>
         <AccountSettings localStorage={legacy} />
@@ -207,7 +215,7 @@ describe("Settings → Account", () => {
   it("offers nothing to move when there is no workspace from before sign-in", async () => {
     renderWithWorkspace(
       <WorkspaceGate>
-        <AccountSettings localStorage={createWorkspaceStorage(() => createMemoryKeyValueStorage())} />
+        <AccountSettings localStorage={createWorkspaceStorage(() => createMemoryKeyValueStorage(), LEGACY_WORKSPACE_KEYS)} />
       </WorkspaceGate>,
       { account: ALICE },
     );

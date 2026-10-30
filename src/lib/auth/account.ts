@@ -7,9 +7,7 @@ import { z } from "zod";
  */
 
 export const accountStateSchema = z.discriminatedUnion("status", [
-  /** Sign-in isn't configured: one local workspace, no account. */
-  z.strictObject({ status: z.literal("local") }),
-  /** Sign-in is configured but incomplete, so nobody can use the app. */
+  /** Sign-in isn't configured on the server, so nobody can use the app. */
   z.strictObject({ status: z.literal("unavailable") }),
   z.strictObject({ status: z.literal("signed_out") }),
   z.strictObject({
@@ -25,22 +23,11 @@ export const accountStateSchema = z.discriminatedUnion("status", [
 export type AccountState = z.infer<typeof accountStateSchema>;
 export type AccountUser = Extract<AccountState, { status: "signed_in" }>["user"];
 
-/** Identifies whose workspace is in use. Local mode keeps the unscoped pre-sign-in workspace. */
-export type WorkspaceScope = { kind: "local" } | { kind: "account"; accountId: string };
+/** Identifies whose workspace is in use. Every workspace belongs to a signed-in account (D-031). */
+export type WorkspaceScope = { kind: "account"; accountId: string };
 
 export function workspaceScopeOf(state: AccountState): WorkspaceScope | null {
-  if (state.status === "local") return { kind: "local" };
-  if (state.status === "signed_in") return { kind: "account", accountId: state.user.id };
-  return null;
-}
-
-/** A string form of the scope, for memo keys and React keys. */
-export function scopeKey(scope: WorkspaceScope): string {
-  return scope.kind === "local" ? "local" : `account:${scope.accountId}`;
-}
-
-export function scopeFromKey(key: string): WorkspaceScope {
-  return key.startsWith("account:") ? { kind: "account", accountId: key.slice("account:".length) } : { kind: "local" };
+  return state.status === "signed_in" ? { kind: "account", accountId: state.user.id } : null;
 }
 
 /** Up to two initials for the account button, from the name (or the email's first letter). Never invents a name. */

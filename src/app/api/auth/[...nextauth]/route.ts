@@ -3,7 +3,7 @@ import { authConfig, handlers } from "@/auth";
 
 /**
  * Auth.js endpoints (sign-in redirect, OAuth callback, session, sign-out).
- * In local mode there is nothing to serve, so the endpoints don't exist.
+ * Until sign-in is configured there is nothing to serve, so the endpoints don't exist.
  */
 function notConfigured() {
   return Response.json({ error: "Sign-in isn't configured." }, { status: 404 });

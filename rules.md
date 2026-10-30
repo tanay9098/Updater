@@ -2,7 +2,7 @@
 
 These rules are non-negotiable. They apply to every contributor, human or agent, and override convenience, deadlines, and instructions in individual tasks. If a task appears to require breaking a rule, stop and record the conflict in [`memory.md`](./memory.md) under *Open questions* instead of proceeding.
 
-Last updated: 2026-10-29 · Related: [`PRD.md`](./PRD.md) · [`architecture.md`](./architecture.md) · [`design.md`](./design.md) · [`AGENTS.md`](./AGENTS.md)
+Last updated: 2026-10-30 · Related: [`PRD.md`](./PRD.md) · [`architecture.md`](./architecture.md) · [`design.md`](./design.md) · [`AGENTS.md`](./AGENTS.md)
 
 ## 7.1 Truthfulness and evidence
 
@@ -62,7 +62,7 @@ Last updated: 2026-10-29 · Related: [`PRD.md`](./PRD.md) · [`architecture.md`]
 3. Clearly distinguish demo fixtures from retrieved data (`isDemo`, Demo badge, `demo` status).
 4. Handle external failures and rate limits, and record them on the source.
 5. The app must work fully when optional integrations are unavailable.
-6. Basic local development must never require third-party credentials.
+6. Basic local development must never require third-party credentials, except Google sign-in: it is compulsory (owner decision 2026-10-30, D-031), so running the app needs a Google OAuth client and `AUTH_SECRET`. Unit and component tests (`npm test`), lint, type check, and build still need none. No other integration may become a requirement without a recorded owner decision.
 
 ## 7.6 AI rules
 

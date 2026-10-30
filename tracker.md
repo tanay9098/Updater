@@ -1,6 +1,6 @@
 # Updater — Implementation Tracker
 
-Last updated: 2026-10-30 (Google sign-in, T10.5) · Related: [`PRD.md`](./PRD.md) §15 (release readiness) · [`memory.md`](./memory.md) · [`rules.md`](./rules.md) §7.7
+Last updated: 2026-10-30 (compulsory Google sign-in, D-031) · Related: [`PRD.md`](./PRD.md) §15 (release readiness) · [`memory.md`](./memory.md) · [`rules.md`](./rules.md) §7.7
 
 **Status vocabulary:** `Todo` · `In Progress` · `Blocked` · `Done`.
 **Priorities:** `P0` required for the MVP · `P1` expected in the MVP if feasible · `P2` post-MVP.
@@ -146,7 +146,7 @@ These stay open until actually implemented and verified.
 | T10.2 | GitHub OAuth (authorization code + PKCE, server-side tokens) | P2 | Todo | T10.1, T10.5 | Real authorization. Disconnect revokes. No token in the browser. |
 | T10.3 | Pull-request and contribution ingestion | P2 | Todo | T10.1 | Merged PRs become evidence with URLs. |
 | T10.4 | Durable server persistence (`ServerWorkspaceStorage`) | P2 | Todo | T10.5 | Same interface as local storage. One-time local import. |
-| T10.5 | User authentication (established library): optional Google sign-in, per-account workspaces | P2 | In Progress | MVP | Server-side authorization on every request. Each account's portfolio and resumes come only from its own workspace (FR-AUTH-01–04). *Verified 2026-10-30:* Auth.js v5 Google provider (D-029); `src/proxy.ts` gates every request (`decideAccess` unit-tested for every mode); account-scoped storage keys and gate (unit and component tests: a second account sees none of the first's data, signed-out or unknown account opens nothing); Playwright on `next start` in local, configured (dummy Google client, real Auth.js session cookies), and partly configured modes (see memory.md change history). *Remaining for Done:* the owner signs in once with a real Google OAuth client (consent screen → callback → workspace opens). |
+| T10.5 | User authentication (established library): compulsory Google sign-in, per-account workspaces | P2 | In Progress | MVP | Server-side authorization on every request. Each account's portfolio and resumes come only from its own workspace (FR-AUTH-01–04). *Verified 2026-10-30:* Auth.js v5 Google provider (D-029); `src/proxy.ts` gates every request (`decideAccess` unit-tested for every mode); sign-in compulsory, no unauthenticated mode (D-031); account-scoped storage keys and gate (unit and component tests: a second account sees none of the first's data, signed-out or unknown account opens nothing); Playwright on `next start` configured with a dummy Google client and real Auth.js session cookies, plus `next start`/`next dev` without variables (blocked) (see memory.md change history). *Remaining for Done:* the owner signs in once with a real Google OAuth client (consent screen → callback → workspace opens). |
 | T10.6 | Scheduled synchronization / background jobs | P2 | Todo | T10.1, T10.4 | Recorded sync results. Backoff on failures. |
 | T10.7 | AI-assisted drafting (optional, server-side, evidence-grounded) | P2 | Todo | MVP | rules.md §7.6 enforced, including a post-check that rejects unsupported numbers. |
 | T10.8 | Blog integrations (RSS/Atom, DEV, Hashnode) | P2 | Todo | MVP | SSRF-safe fetching. Articles become evidence. |

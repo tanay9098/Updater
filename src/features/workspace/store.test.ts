@@ -2,21 +2,20 @@ import { describe, expect, it } from "vitest";
 import {
   createMemoryKeyValueStorage,
   createWorkspaceStorage,
-  WORKSPACE_STORAGE_KEY,
   type KeyValueStorage,
 } from "@/lib/data/storage";
 import { err } from "@/lib/validation/result";
 import { approveReviewItem } from "@/features/review/transitions";
 import { addManualItem } from "@/features/sources/manual";
 import { updateProfile } from "@/features/profile/profile";
-import { MANUAL_PROJECT, T0, T1 } from "@/test/fixtures";
+import { MANUAL_PROJECT, T0, T1, TEST_KEYS } from "@/test/fixtures";
 import { createWorkspaceStore } from "./store";
 
 const clock = () => T1;
 
 function setup(initial: Record<string, string> = {}) {
   const memory = createMemoryKeyValueStorage(initial);
-  const store = createWorkspaceStore(createWorkspaceStorage(() => memory), clock);
+  const store = createWorkspaceStore(createWorkspaceStorage(() => memory, TEST_KEYS), clock);
   store.load();
   return { memory, store };
 }
@@ -30,14 +29,14 @@ describe("workspace store (T3.4, integration with the storage adapter)", () => {
     const outcome = store.apply((ws, now) => updateProfile(ws, profile, now));
     expect(outcome).toMatchObject({ ok: true, savedAt: T1 });
     expect(store.getSnapshot()).toMatchObject({ phase: "ready", save: { state: "saved", savedAt: T1 } });
-    expect(JSON.parse(memory.data.get(WORKSPACE_STORAGE_KEY)!).profile.name).toBe("Sam");
+    expect(JSON.parse(memory.data.get(TEST_KEYS.workspace)!).profile.name).toBe("Sam");
   });
 
   it("edits persist across a reload (a new store over the same storage)", () => {
     const { memory, store } = setup();
     store.apply((ws, now) => updateProfile(ws, profile, now));
     store.apply((ws, now) => addManualItem(ws, MANUAL_PROJECT, now));
-    const reloaded = createWorkspaceStore(createWorkspaceStorage(() => memory), clock);
+    const reloaded = createWorkspaceStore(createWorkspaceStorage(() => memory, TEST_KEYS), clock);
     reloaded.load();
     const snapshot = reloaded.getSnapshot();
     expect(snapshot.phase).toBe("ready");
@@ -53,7 +52,7 @@ describe("workspace store (T3.4, integration with the storage adapter)", () => {
     if (!added.ok) throw new Error("setup failed");
     const approved = store.apply((ws, now) => approveReviewItem(ws, added.value.reviewItemId, {}, now));
     expect(approved.ok).toBe(true);
-    const stored = JSON.parse(memory.data.get(WORKSPACE_STORAGE_KEY)!);
+    const stored = JSON.parse(memory.data.get(TEST_KEYS.workspace)!);
     expect(stored.portfolio.claims).toHaveLength(1);
     expect(stored.portfolio.publishing).toEqual({ publisherId: null, status: "not_published" });
   });
@@ -64,14 +63,14 @@ describe("workspace store (T3.4, integration with the storage adapter)", () => {
     const outcome = store.apply(() => err("invalid_transition", "No."));
     expect(outcome).toMatchObject({ ok: false, applied: false, error: { code: "invalid_transition" } });
     expect(store.getSnapshot()).toBe(before);
-    expect(memory.data.has(WORKSPACE_STORAGE_KEY)).toBe(false);
+    expect(memory.data.has(TEST_KEYS.workspace)).toBe(false);
   });
 
   it("refuses a result that would fail validation on the next load", () => {
     const { memory, store } = setup();
     const outcome = store.apply((ws) => ({ ok: true, value: { ...ws, profile: { ...ws.profile!, name: "" } } }));
     expect(outcome).toMatchObject({ ok: false, applied: false });
-    expect(memory.data.has(WORKSPACE_STORAGE_KEY)).toBe(false);
+    expect(memory.data.has(TEST_KEYS.workspace)).toBe(false);
   });
 
   it("keeps the change in memory and reports the error when saving fails (FR-ERR-02)", () => {
@@ -84,7 +83,7 @@ describe("workspace store (T3.4, integration with the storage adapter)", () => {
         memory.setItem(key, value);
       },
     };
-    const store = createWorkspaceStore(createWorkspaceStorage(() => flaky), clock);
+    const store = createWorkspaceStore(createWorkspaceStorage(() => flaky, TEST_KEYS), clock);
     store.load();
     const outcome = store.apply((ws, now) => updateProfile(ws, profile, now));
     expect(outcome).toMatchObject({ ok: false, applied: true, error: { code: "storage_quota_exceeded" } });
@@ -94,11 +93,11 @@ describe("workspace store (T3.4, integration with the storage adapter)", () => {
 
     full = false;
     expect(store.retrySave()).toMatchObject({ ok: true });
-    expect(JSON.parse(memory.data.get(WORKSPACE_STORAGE_KEY)!).profile.name).toBe("Sam");
+    expect(JSON.parse(memory.data.get(TEST_KEYS.workspace)!).profile.name).toBe("Sam");
   });
 
   it("enters recovery for corrupt data, and reset starts empty", () => {
-    const { memory, store } = setup({ [WORKSPACE_STORAGE_KEY]: "corrupt" });
+    const { memory, store } = setup({ [TEST_KEYS.workspace]: "corrupt" });
     expect(store.getSnapshot()).toMatchObject({ phase: "recovery", error: { code: "storage_corrupt" } });
     expect(store.readRecovery()).toBe("corrupt");
     expect(store.reset()).toMatchObject({ ok: true });
@@ -119,7 +118,7 @@ describe("workspace store (T3.4, integration with the storage adapter)", () => {
   });
 
   it("works for the visit when storage is blocked, and says so", () => {
-    const store = createWorkspaceStore(createWorkspaceStorage(() => null), () => T0);
+    const store = createWorkspaceStore(createWorkspaceStorage(() => null, TEST_KEYS), () => T0);
     store.load();
     expect(store.getSnapshot()).toMatchObject({ phase: "ready", save: { state: "error", error: { code: "storage_unavailable" } } });
   });

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { LogOut } from "lucide-react";
-import { browserWorkspaceStorage, type WorkspaceStorage } from "@/lib/data/storage";
+import { legacyBrowserWorkspaceStorage, type WorkspaceStorage } from "@/lib/data/storage";
 import type { Workspace } from "@/types/domain";
 import { useAccount } from "@/components/account/account-provider";
 import { useSignOut } from "@/components/account/use-sign-out";
@@ -12,19 +12,12 @@ import { useToast } from "@/components/ui/toast";
 import { saveFailureToast, useWorkspace, useWorkspaceStore } from "@/components/workspace/workspace-provider";
 import { counts } from "./data-settings";
 
-/** Settings → Account (design.md §13, D-030). */
+/** Settings → Account (design.md §13, D-030, D-031). Only rendered inside the gate, so an account is signed in. */
 export function AccountSettings({ localStorage }: { localStorage?: WorkspaceStorage }) {
   const { snapshot } = useAccount();
   const { signOut, pending } = useSignOut();
 
-  if (snapshot.phase !== "ready" || snapshot.state.status !== "signed_in") {
-    return (
-      <p className="text-body text-foreground-secondary">
-        Sign-in isn&apos;t set up for this installation, so Updater uses one workspace in this browser without an
-        account.
-      </p>
-    );
-  }
+  if (snapshot.phase !== "ready" || snapshot.state.status !== "signed_in") return null;
 
   const { user } = snapshot.state;
   return (
@@ -51,7 +44,7 @@ export function AccountSettings({ localStorage }: { localStorage?: WorkspaceStor
 }
 
 /**
- * A workspace saved before sign-in was turned on has no owner. It is never
+ * A workspace saved before sign-in became compulsory has no owner. It is never
  * opened automatically; the signed-in user can move it into their account,
  * which removes the unscoped copy so no other account can take it.
  */
@@ -59,7 +52,7 @@ function LocalWorkspaceClaim({ storage: injected }: { storage?: WorkspaceStorage
   const ws = useWorkspace();
   const store = useWorkspaceStore();
   const { notify } = useToast();
-  const [storage] = useState(() => injected ?? browserWorkspaceStorage({ kind: "local" }));
+  const [storage] = useState(() => injected ?? legacyBrowserWorkspaceStorage());
   const [local, setLocal] = useState<{ workspace: Workspace; notices: string[] } | null>(() => {
     const loaded = storage.load();
     return loaded.ok && loaded.value.workspace ? { workspace: loaded.value.workspace, notices: loaded.value.notices } : null;
@@ -72,7 +65,7 @@ function LocalWorkspaceClaim({ storage: injected }: { storage?: WorkspaceStorage
       <div className="flex flex-col gap-0.5">
         <h3 className="text-label font-semibold">Workspace saved before sign-in</h3>
         <p className="text-support text-foreground-secondary">
-          This browser has a workspace from before sign-in was turned on. It doesn&apos;t belong to any account yet:{" "}
+          This browser has a workspace from before sign-in was required. It doesn&apos;t belong to any account yet:{" "}
           {counts(local.workspace)}.
         </p>
       </div>

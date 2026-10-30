@@ -17,7 +17,7 @@
 
 Updater's MVP is a **single Next.js application that runs entirely in the user's browser** for data handling. Pages are rendered by Next.js. All workspace data (profile, sources, evidence, review items, portfolio, resumes) lives in a versioned document in browser storage. There is no backend database, no external API call, and no AI provider in the MVP. This is deliberate (see D-003 and D-004 in §17). It keeps the app usable without credentials and makes every displayed integration state truthful.
 
-**Optional Google sign-in [Implemented] (T10.5, D-029, D-030).** When `AUTH_SECRET`, `AUTH_GOOGLE_ID`, and `AUTH_GOOGLE_SECRET` are set, Auth.js handles Google sign-in, `src/proxy.ts` requires a session on every request, and the browser opens only the workspace stored under the signed-in account's own `localStorage` key. Without those variables the app runs in local mode, exactly as before. Workspace data still never reaches the server (§10, §11).
+**Compulsory Google sign-in [Implemented] (T10.5, D-029–D-031).** Auth.js handles Google sign-in, `src/proxy.ts` requires a session on every request, and the browser opens only the workspace stored under the signed-in account's own `localStorage` key. There is no mode without an account: if `AUTH_SECRET`, `AUTH_GOOGLE_ID`, or `AUTH_GOOGLE_SECRET` is unset, the app is blocked at `/sign-in`. Workspace data still never reaches the server (§10, §11).
 
 Principal components:
 
@@ -31,7 +31,7 @@ Principal components:
 | Validation (`src/lib/validation`) | Runtime schemas for persisted, imported, and user-entered data | [Implemented] |
 | Storage adapter (`src/lib/data`) | Load, validate, migrate, and save the workspace document | [Implemented] |
 | Provider registry (`src/lib/providers`) | Source provider definitions: Manual entries, Demo workspace, plus Planned descriptors | [Implemented] (descriptors only; no provider performs network I/O) |
-| Authentication (`src/auth.ts`, `src/proxy.ts`, `src/lib/auth`, `src/components/account`) | Optional Google sign-in, per-request sign-in gate, account status, account-scoped workspace keys | [Implemented] (§10) |
+| Authentication (`src/auth.ts`, `src/proxy.ts`, `src/lib/auth`, `src/components/account`) | Compulsory Google sign-in, per-request sign-in gate, account status, account-scoped workspace keys | [Implemented] (§10) |
 | Route handlers / server APIs | `/api/auth/*` (Auth.js) and `/api/account` [Implemented]; server-side ingestion and persistence | [Future] beyond auth |
 | GitHub and blog providers | Real ingestion | [Future] |
 | Durable database | Multi-device persistence | [Future] |
@@ -194,7 +194,7 @@ src/
 │   ├── layout.tsx             # root layout: theme script + providers only
 │   ├── (workspace)/           # route group: layout.tsx renders AppShell; all six pages, onboarding, error.tsx
 │   ├── sign-in/page.tsx       # outside the shell; request-time part behind Suspense (◐)
-│   ├── api/auth/[...nextauth]/route.ts   # Auth.js endpoints (404 in local mode)
+│   ├── api/auth/[...nextauth]/route.ts   # Auth.js endpoints (404 until sign-in is configured)
 │   ├── api/account/route.ts   # account status for the browser, no-store
 │   └── not-found.tsx          # renders its own AppShell (unmatched URLs are outside the group)
 ├── components/account/        # account-provider, account-menu (top bar), account-required, use-sign-out,
@@ -516,14 +516,14 @@ MVP providers: `manual` (available, local), `demo` (fixtures), and `github` and 
 
 | Topic | Implemented | Future |
 | --- | --- | --- |
-| Authentication | Optional Google sign-in through Auth.js v5 (`next-auth`), JWT session strategy, no user database (D-029). The first sign-in creates the account; there is no separate sign-up. Off unless all of `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` are set (`readAuthConfig`); partly set → `incomplete`, which blocks the app. | More providers, or a database adapter once server persistence exists (T10.4) |
+| Authentication | Compulsory Google sign-in through Auth.js v5 (`next-auth`), JWT session strategy, no user database (D-029, D-031). The first sign-in creates the account; there is no separate sign-up. `readAuthConfig` is `ready` only when all of `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` are set; otherwise `missing`, which blocks the app. There is no unauthenticated mode. | More providers, or a database adapter once server persistence exists (T10.4) |
 | Account identity | `google:<sub>` from `account.providerAccountId`, stored in the session token as `accountId` and exposed as `session.accountId`. Auth.js's own `user.id` is random per sign-in without an adapter, so it isn't used. | Database user ids |
 | Authorization | `src/proxy.ts` runs `decideAccess` on every request except build assets: signed-out page requests redirect to `/sign-in?callbackUrl=…`, API requests get 401. Public: `/sign-in`, `/api/auth/*`, `/api/account`. There is no server-held workspace data to authorize yet. | Every server read and write checks the session user owns the resource (T10.4) |
-| Workspace scoping | `/api/account` reports `local`, `unavailable`, `signed_out`, or `signed_in` with `{ id, name, email }` (validated by `accountStateSchema` in the browser). `WorkspaceProvider` creates a store only for `local` or `signed_in`, using `workspaceStorageKeys(scope)`; signed out, unknown, or failed → no store, and `WorkspaceGate` explains why (D-030). The account is re-checked when the tab becomes visible. | Server-side storage per account |
+| Workspace scoping | `/api/account` reports `unavailable`, `signed_out`, or `signed_in` with `{ id, name, email }` (validated by `accountStateSchema` in the browser). `WorkspaceProvider` creates a store only for `signed_in`, using `workspaceStorageKeys(scope)`; signed out, unknown, unavailable, or failed → no store, and `WorkspaceGate` explains why (D-030, D-031). The account is re-checked when the tab becomes visible. | Server-side storage per account |
 | OAuth | Google authorization-code flow run by Auth.js: PKCE and `state` checked on the callback (`/api/auth/callback/google`), CSRF token on sign-in/sign-out. No Google access or refresh token is kept. | GitHub OAuth (T10.2) with server-side tokens |
 | Sessions | Encrypted JWT in an HTTP-only, `SameSite=Lax` cookie (`Secure` on HTTPS) managed by Auth.js. The avatar URL is dropped from the token. Sign-out clears the cookie, then the browser loads `/sign-in` with a full navigation so no workspace stays in memory. | |
 | Server-only credentials | `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` as plain env vars, read only in `src/auth.ts`, never `NEXT_PUBLIC_*` | `GITHUB_CLIENT_SECRET` |
-| Environment variables | None required. Sign-in variables are read at server start (restart after changes); the sign-in page lists missing names only in development. | Validated at startup with a schema |
+| Environment variables | `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` are required to use the app (tests, lint, and build need none). Read at server start (restart after changes); the sign-in page lists missing names only in development. | Validated at startup with a schema |
 | Input validation | Zod for forms, imports, persisted data, and the `/api/account` response. `safeCallbackPath` accepts only same-site paths after sign-in. | Same schemas re-used server-side |
 | External URLs | `safeExternalUrl()`: parse with `URL` and allow only `http:`/`https:`. Rendered with `rel="noopener noreferrer"`. | Server-side fetchers add allow-lists and block private address ranges (SSRF) |
 | Untrusted source text | Rendered as React text nodes only. No `dangerouslySetInnerHTML` except the static theme bootstrap script. Markdown is not rendered. Auth.js error codes map to fixed messages. | If rich text is ever rendered, use a vetted sanitizer |
@@ -539,13 +539,13 @@ This architecture claims no security property beyond what the code implements. B
 | Question | Answer |
 | --- | --- |
 | What is stored | `WorkspaceDocumentV1` (§5.12) and the theme preference |
-| Where | `localStorage`: `updater:workspace:v1` in local mode, `updater:workspace:v1:account:<encoded account id>` per signed-in account (D-030), and `updater:theme` |
+| Where | `localStorage`: `updater:workspace:v1:account:<encoded account id>` per signed-in account (D-030), and `updater:theme`. The unsuffixed `updater:workspace:v1` is only read to offer moving a pre-sign-in workspace (`LEGACY_WORKSPACE_KEYS`). |
 | Persists across reloads | Everything in the workspace document, plus the theme |
 | Temporary | Unsaved form input, open dialogs, filters, and toasts (in-memory React state) |
 | Never stored | Tokens, API keys, passwords, or anything secret |
 | Save model | Saves after each successful action (localStorage is synchronous, so there is no `saving` state). The store exposes `save: 'idle' | 'saved' | 'error'` with `savedAt` or `error`, and refuses any result that fails `workspaceSchema` (D-020). If storage is blocked at load, the app works in memory for the visit and the save status says so. Another tab's save triggers a reload of the stored workspace. |
 | Load model | Read → JSON parse → Zod validate → migrate by `schemaVersion` → hydrate. On failure the raw value is preserved under `updater:workspace:recovery` (with the same `:account:<id>` suffix when signed in), and the user is offered export or reset. |
-| Pre-sign-in data | A local-mode workspace is never opened for an account automatically. Settings → Account offers to move it into the signed-in account (replace, then delete the unscoped keys). |
+| Pre-sign-in data | A workspace saved before sign-in became compulsory is never opened for an account automatically. Settings → Account offers to move it into the signed-in account (replace, then delete the unscoped keys). |
 | SSR | Workspace UI renders client-side after load (`WorkspaceGate`), with a skeleton until hydration. The server never sees workspace data. `/resumes/[resumeId]` reads its param with `useParams` inside `<Suspense>` (D-028). |
 | Multi-user durability (future) | Server database and per-user authorization (accounts exist, §10). A `ServerWorkspaceStorage` adapter implements the same `WorkspaceStorage` interface, with a one-time import from local data. |
 
@@ -656,5 +656,6 @@ Full context and status are kept in [`memory.md`](./memory.md#decision-log), usi
 | D-026 | Explicit Save per editor section | Save on blur | Clear unsaved vs saved states | `beforeunload` warning while dirty |
 | D-027 | Keyword overlap plus role hints for suggestions | Literal overlap only | Role titles rarely share words with technologies | Editorial word list (memory.md open question 6) |
 | D-028 | Client-side `useParams` in Suspense for resume ids | `generateStaticParams` | Ids exist only in the browser | Generic page `h1` |
-| D-029 | Optional Google sign-in with Auth.js v5 (`next-auth@5.0.0-beta.32`, pinned), JWT sessions, no database; on only when all sign-in variables are set, blocked when partly set | Auth.js v4 (stable); Better Auth; homemade OAuth | Established library (rules.md §7.3.9), App Router-native API (`auth()`, proxy wrapper, server actions), Next 16 peer support; v5 is published as beta | No user table; account id is `google:<sub>`; beta upgrades need care |
+| D-029 | Google sign-in with Auth.js v5 (`next-auth@5.0.0-beta.32`, pinned), JWT sessions, no database; blocked unless all sign-in variables are set (made compulsory by D-031) | Auth.js v4 (stable); Better Auth; homemade OAuth | Established library (rules.md §7.3.9), App Router-native API (`auth()`, proxy wrapper, server actions), Next 16 peer support; v5 is published as beta | No user table; account id is `google:<sub>`; beta upgrades need care |
 | D-030 | Workspace scoped per account in the browser (`updater:workspace:v1:account:<id>`), chosen from the server's `/api/account` answer; no store while the account is unknown or signed out | Server-side workspace storage now (T10.4) | Delivers per-user portfolios and resumes without a database decision; keeps pages static | Not cross-device; readable via devtools on a shared browser profile; T10.4 removes both |
+| D-031 | Google sign-in is compulsory: no unauthenticated mode; missing configuration blocks the app | Optional sign-in with a local mode (D-029 as first built) | Owner decision (2026-10-30) | Running the app needs Google credentials; rules.md §7.5.6 amended; tests and build still need none |

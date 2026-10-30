@@ -2,6 +2,8 @@ import { addManualItem } from "@/features/sources/manual";
 import { loadDemoWorkspace } from "@/features/sources/demo";
 import { updateProfile } from "@/features/profile/profile";
 import { createEmptyWorkspace } from "@/features/workspace/workspace";
+import type { AccountState } from "@/lib/auth/account";
+import { workspaceStorageKeys } from "@/lib/data/storage";
 import type { ManualEntryInput } from "@/lib/validation/domain";
 import type { Workspace } from "@/types/domain";
 
@@ -9,6 +11,13 @@ import type { Workspace } from "@/types/domain";
 export const T0 = "2026-10-29T10:00:00.000Z";
 export const T1 = "2026-10-29T11:00:00.000Z";
 export const T2 = "2026-10-29T12:00:00.000Z";
+
+/** The signed-in account component tests run as, and its storage keys. Sign-in is compulsory (D-031). */
+export const TEST_ACCOUNT: Extract<AccountState, { status: "signed_in" }> = {
+  status: "signed_in",
+  user: { id: "google:test", name: "Test Account", email: "test@example.com" },
+};
+export const TEST_KEYS = workspaceStorageKeys({ kind: "account", accountId: TEST_ACCOUNT.user.id });
 
 /** Unwraps a successful Result or fails the test with its error. */
 export function must<T>(result: { ok: true; value: T } | { ok: false; error: { code: string; message: string } }): T {
