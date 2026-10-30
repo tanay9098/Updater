@@ -3,6 +3,7 @@ import { decideAccess, isPublicPath, safeCallbackPath } from "./access";
 import { accountStateSchema, initialsOf, workspaceScopeOf } from "./account";
 import { readAuthConfig } from "./config";
 import { signInErrorMessage } from "./errors";
+import { isSessionRefresh, withoutSessionRefresh } from "./session-cookies";
 
 describe("readAuthConfig", () => {
   it("has no mode without sign-in: nothing set means everything is missing", () => {
@@ -107,5 +108,56 @@ describe("signInErrorMessage", () => {
     expect(signInErrorMessage(undefined)).toBeNull();
     expect(signInErrorMessage("AccessDenied")).toMatch(/cancelled or access was denied/);
     expect(signInErrorMessage("<script>")).not.toContain("<script>");
+  });
+});
+
+describe("withoutSessionRefresh", () => {
+  const headersWith = (...cookies: string[]) => {
+    const headers = new Headers();
+    for (const cookie of cookies) headers.append("set-cookie", cookie);
+    return headers;
+  };
+
+  it("recognizes session-token writes, including the secure variant and chunks", () => {
+    for (const cookie of [
+      "authjs.session-token=abc; Path=/; HttpOnly",
+      "__Secure-authjs.session-token=abc; Path=/; Secure",
+      "authjs.session-token.0=abc; Path=/",
+    ]) {
+      expect(isSessionRefresh(cookie)).toBe(true);
+    }
+    for (const cookie of [
+      "authjs.session-token=; Path=/; Max-Age=0",
+      "authjs.csrf-token=x",
+      "authjs.callback-url=x",
+      "authjs.session-tokenx=1",
+      "other=authjs.session-token=1",
+    ]) {
+      expect(isSessionRefresh(cookie)).toBe(false);
+    }
+  });
+
+  it("drops session-cookie writes and keeps every other cookie", () => {
+    const headers = headersWith(
+      "authjs.csrf-token=c; Path=/",
+      "authjs.session-token=refreshed; Path=/; HttpOnly",
+      "authjs.callback-url=u; Path=/",
+    );
+    withoutSessionRefresh(headers);
+    expect(headers.getSetCookie()).toEqual(["authjs.csrf-token=c; Path=/", "authjs.callback-url=u; Path=/"]);
+  });
+
+  it("keeps Auth.js deleting an unreadable session cookie", () => {
+    const headers = headersWith("authjs.session-token=; Path=/; Max-Age=0");
+    withoutSessionRefresh(headers);
+    expect(headers.getSetCookie()).toEqual(["authjs.session-token=; Path=/; Max-Age=0"]);
+  });
+
+  it("leaves responses without a session cookie untouched", () => {
+    const headers = headersWith("a=1");
+    headers.set("x-other", "kept");
+    withoutSessionRefresh(headers);
+    expect(headers.getSetCookie()).toEqual(["a=1"]);
+    expect(headers.get("x-other")).toBe("kept");
   });
 });

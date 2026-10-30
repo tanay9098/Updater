@@ -11,6 +11,7 @@ Updater helps developers keep an **evidence-backed** portfolio and role-specific
 - Radix UI primitives (`radix-ui`), Lucide icons (`lucide-react`), Zod
 - Auth.js (`next-auth` v5) for Google sign-in (required)
 - Vitest, Testing Library, and jsdom for unit, component, and integration tests
+- Playwright and axe-core for end-to-end and automated accessibility tests
 
 Exact versions are in `package.json` and `package-lock.json`.
 
@@ -54,8 +55,19 @@ Set up Google sign-in first (above). Then open http://localhost:3000, sign in wi
 | `npm run typecheck` | Generate route types and run the TypeScript compiler without emitting |
 | `npm test` | Run the unit, component, and integration tests once (Vitest, jsdom) |
 | `npm run test:watch` | Run the tests in watch mode |
+| `npm run test:e2e` | Run the end-to-end and accessibility tests (Playwright, Chromium) against the production build |
 
 Tests live next to the code they test (`*.test.ts`, `*.test.tsx`); shared fixtures and render helpers are in `src/test/`. Query by role and accessible name (`getByRole`) so tests also check accessibility.
+
+End-to-end tests live in `e2e/` and need no Google account or `.env.local`. They start `next start` on port 3100 with a dummy Google client and a test-only `AUTH_SECRET`, and sign in by setting a session cookie encrypted with that secret. Build first, and install the browser once if your machine doesn't have it:
+
+```bash
+npx playwright install chromium
+```
+
+```bash
+npm run build && npm run test:e2e
+```
 
 ## Project structure
 
@@ -69,7 +81,8 @@ Tests live next to the code they test (`*.test.ts`, `*.test.tsx`); shared fixtur
 ├── src/features/      # pure domain logic: workspace store, review transitions, proposals, ingestion, portfolio, resumes
 ├── src/lib/           # validation schemas, storage adapter, auth rules, demo fixtures, provider registry, utilities
 ├── src/types/         # domain types inferred from the schemas
-└── …config files      # next.config.ts, tsconfig.json, eslint.config.mjs, vitest.config.mts
+├── e2e/               # Playwright end-to-end and accessibility tests
+└── …config files      # next.config.ts, tsconfig.json, eslint.config.mjs, vitest.config.mts, playwright.config.ts
 ```
 
 The architecture, including how evidence, generated wording, review state, and publishing state are kept separate, is described in [`architecture.md`](./architecture.md).

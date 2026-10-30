@@ -1,6 +1,6 @@
 # Updater — Implementation Tracker
 
-Last updated: 2026-10-30 (compulsory Google sign-in, D-031) · Related: [`PRD.md`](./PRD.md) §15 (release readiness) · [`memory.md`](./memory.md) · [`rules.md`](./rules.md) §7.7
+Last updated: 2026-10-30 (Phase D verification and hardening) · Related: [`PRD.md`](./PRD.md) §15 (release readiness) · [`memory.md`](./memory.md) · [`rules.md`](./rules.md) §7.7
 
 **Status vocabulary:** `Todo` · `In Progress` · `Blocked` · `Done`.
 **Priorities:** `P0` required for the MVP · `P1` expected in the MVP if feasible · `P2` post-MVP.
@@ -14,8 +14,8 @@ The project owner reviews and approves each execution phase before the next one 
 | --- | --- | --- |
 | A — Bootstrap | Phase 1 | **Done. Approved by the owner (Phase B requested 2026-10-28).** |
 | B — Foundation | Phase 2 (plus T8.2) | **Done. Approved by the owner (Phase C requested 2026-10-29).** |
-| C — Core functionality | Phases 3–8 | **Done. Awaiting owner review.** |
-| D — Verification | Phase 9 | Todo |
+| C — Core functionality | Phases 3–8 | **Done. Approved by the owner (Phase D requested 2026-10-30).** |
+| D — Verification | Phase 9 | **Done. Awaiting owner review.** Re-verified Phases A–C instead of assuming them; see memory.md change history. |
 | E — Next priorities | Phase 10 selection | Todo. T10.5 was started early at the owner's explicit request (2026-10-30). |
 
 ## Phase 1 — Repository and documentation bootstrap
@@ -124,17 +124,17 @@ The project owner reviews and approves each execution phase before the next one 
 
 | ID | Task | Pri | Status | Deps | Definition of done |
 | --- | --- | --- | --- | --- | --- |
-| T9.1 | Unit tests for domain rules (transitions, provenance, proposals, ingestion, URL, tailoring, migrations) | P0 | Todo | Phases 3–7 | `npm test` passes. Coverage of every §7.1 transition. |
-| T9.2 | Component tests (review actions, forms, theme toggle, confirmations, demo labels) | P0 | Todo | Phases 2–8 | Pass. |
-| T9.3 | Integration tests (store + storage adapter, export/import round trip) | P0 | Todo | T3.4, T8.5 | Pass. |
-| T9.4 | Type check | P0 | Todo | all | `npm run typecheck` passes. |
-| T9.5 | Lint | P0 | Todo | all | `npm run lint` passes with no warnings suppressed globally. |
-| T9.6 | Production build | P0 | Todo | all | `npm run build` passes. |
-| T9.7 | Accessibility review (keyboard, focus, names, contrast, axe scan if available) | P0 | Todo | Phases 2–8 | Findings fixed or recorded in memory.md. |
-| T9.8 | Responsive checks at 320, 768, and 1280 px | P0 | Todo | Phases 2–8 | No horizontal scroll. Primary actions reachable. |
-| T9.9 | Playwright E2E for Journeys A–E | P1 | Todo | Phases 3–8 | Pass in Chromium. If browser automation is unavailable, record that and why. |
-| T9.10 | README verification on a clean checkout | P0 | Todo | T9.4–T9.6 | Commands run as documented. |
-| T9.11 | Documentation sync review | P0 | Todo | all | All docs match the implementation (PRD.md R10). |
+| T9.1 | Unit tests for domain rules (transitions, provenance, proposals, ingestion, URL, tailoring, migrations) | P0 | Done | Phases 3–7 | `npm test` passes. Coverage of every §7.1 transition. *Verified 2026-10-30:* `npm test` 23 files, 233 tests pass from a clean `npm ci`; `transitions.test.ts` covers all 20 cells of §7.1; migrations and round trips in `storage.test.ts`. New: `withoutSessionRefresh` tests. |
+| T9.2 | Component tests (review actions, forms, theme toggle, confirmations, demo labels) | P0 | Done | Phases 2–8 | Pass. *Verified 2026-10-30:* included in the 233 above (review queue, portfolio editor, resumes, settings, sources, theme controls, UI primitives, account scoping). |
+| T9.3 | Integration tests (store + storage adapter, export/import round trip) | P0 | Done | T3.4, T8.5 | Pass. *Verified 2026-10-30:* `store.test.ts`, `storage.test.ts` (round trip through JSON); plus E2E export → reset → import in a real browser (`e2e/settings.spec.ts`). |
+| T9.4 | Type check | P0 | Done | all | `npm run typecheck` passes. *Verified 2026-10-30:* passes, including `e2e/` and `playwright.config.ts`. |
+| T9.5 | Lint | P0 | Done | all | `npm run lint` passes with no warnings suppressed globally. *Verified 2026-10-30:* clean, no new disables. A react-hooks false positive on Playwright's `use` fixture callback was avoided by renaming the parameter, not by disabling the rule. |
+| T9.6 | Production build | P0 | Done | all | `npm run build` passes. *Verified 2026-10-30:* passes; route modes unchanged (workspace pages static, `/sign-in` and `/resumes/[resumeId]` partial prerender, APIs dynamic). |
+| T9.7 | Accessibility review (keyboard, focus, names, contrast, axe scan if available) | P0 | Done | Phases 2–8 | Findings fixed or recorded in memory.md. *Verified 2026-10-30:* `e2e/accessibility.spec.ts` (axe WCAG 2.2 A/AA, both themes, every page: 0 violations; reduced motion; visible focus) and `e2e/shell.spec.ts` (skip link, landmarks, focus on `h1`, drawer). Not verified: real screen readers, forced colors, zoom (design.md §15, memory.md). |
+| T9.8 | Responsive checks at 320, 768, and 1280 px | P0 | Done | Phases 2–8 | No horizontal scroll. Primary actions reachable. *Verified 2026-10-30:* found and fixed a 27 px top-bar overflow at 320 px with demo data loaded (all pages); now no overflow on 7 routes at 320/768/1280 px in both themes with approved content (`e2e/shell.spec.ts`). |
+| T9.9 | Playwright E2E for Journeys A–E | P1 | Done | Phases 3–8 | Pass in Chromium. If browser automation is unavailable, record that and why. *Verified 2026-10-30:* committed `e2e/` suite, `npm run test:e2e`: 40 tests pass in Chromium against `next start`, and 78/78 with `--repeat-each=2`. Sign-in via real Auth.js cookies minted with a test-only secret (D-033). |
+| T9.10 | README verification on a clean checkout | P0 | In Progress | T9.4–T9.6 | Commands run as documented. |
+| T9.11 | Documentation sync review | P0 | Done | all | All docs match the implementation (PRD.md R10). *Verified 2026-10-30:* fixed PRD Journey A step 1 and R1 (stale "no redirect"/"no env vars" text), architecture §16 ("no env vars required"), and added Phase D behavior to architecture §2, §4, §10, §15, §17, design.md §4 and §15, rules.md §7.3, AGENTS.md, README. |
 
 ## Phase 10 — Future integrations
 
@@ -155,6 +155,6 @@ These stay open until actually implemented and verified.
 
 ## Next recommended task
 
-**T10.5 follow-up:** the owner configures a Google OAuth client (README → "Google sign-in") and confirms one real sign-in, then T10.5 can be marked Done. The natural next step for accounts is **T10.4** (server persistence, so a workspace follows its account across devices); it needs a database decision first (memory.md open question 7).
+**Owner review of Phase D**, then the **T10.5 follow-up:** the owner configures a Google OAuth client (README → "Google sign-in") and confirms one real sign-in, including that sign-out sticks; then T10.5 can be marked Done. This matters more after Phase D, because the session-cookie fix (D-032) changes how the proxy handles cookies and only a real Google callback can confirm the cookie is still set on sign-in.
 
-After the owner approves Phase C: start **Phase D** with **T9.9** (commit the Playwright Journey A–E run as an `e2e/` suite; a one-off script already passes in Chromium), **T9.7** (accessibility review with an axe scan), and **T9.11** (documentation sync review).
+Then, in Phase E: **T10.1** (GitHub public repository import, the recommended first real integration, memory.md open question 2), or **T10.4** (server persistence; needs the database decision in memory.md open question 7).

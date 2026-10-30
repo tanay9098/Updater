@@ -11,7 +11,7 @@
 > **[Implemented]** exists in the repository and is verified;
 > **[MVP]** is planned for the MVP (Phases B–D) and not yet built;
 > **[Future]** is planned after the MVP (tracker Phase 10).
-> At the end of Phase C, everything tagged [MVP] in §1–§13 is **[Implemented]** except the committed Playwright suite (T9.9, Phase D). Where the implementation differs from the original plan, §5.13 lists the differences.
+> At the end of Phase C, everything tagged [MVP] in §1–§13 is **[Implemented]** except the committed Playwright suite, which Phase D added (T9.9, `e2e/`). Where the implementation differs from the original plan, §5.13 lists the differences.
 
 ## 1. Architecture overview
 
@@ -86,7 +86,7 @@ Exact versions are pinned in `package.json` and `package-lock.json`. Those files
 | Validation | Zod schemas, with types inferred from them | [Implemented] (helpers) | D-006. Entity schemas arrive with T3.1. |
 | Forms | Controlled React components plus shared Zod validation helpers | [Implemented] | D-006, D-026. Explicit Save per section with an "Unsaved changes" marker. No `react-hook-form`. |
 | Unit and component tests | Vitest, Testing Library, jsdom | [Implemented] | D-007, D-015. `npm test`. Config in `vitest.config.mts`, browser API stubs for Radix in `vitest.setup.ts`. |
-| End-to-end tests | Playwright | [MVP] | D-007. Journeys A–E were run with a one-off script in Phase C; the committed `e2e/` suite is T9.9. |
+| End-to-end tests | Playwright (`@playwright/test`), axe (`@axe-core/playwright`) | [Implemented] | D-007, D-033. `npm run test:e2e` against `next start` of the production build. Sign-in uses a real Auth.js session cookie encrypted with a test-only secret; the app has no test mode. |
 | Persistence | `window.localStorage`, through a storage adapter | [Implemented] | D-003, D-019–D-021 |
 
 ## 3. Application layers
@@ -200,7 +200,20 @@ src/
 ├── components/account/        # account-provider, account-menu (top bar), account-required, use-sign-out,
 │                              # google-sign-in-button
 ├── components/settings/account-settings.tsx   # Settings → Account, move a pre-sign-in workspace
-└── lib/auth/                  # config.ts, access.ts, account.ts, errors.ts (pure, tested); actions.ts (server actions)
+└── lib/auth/                  # config.ts, access.ts, account.ts, errors.ts, session-cookies.ts (pure, tested); actions.ts (server actions)
+```
+
+**Added in Phase D (T9.9):**
+
+```
+playwright.config.ts           # starts `next start` on port 3100 with a dummy Google client and test AUTH_SECRET
+e2e/
+├── env.ts · fixtures.ts       # test-only server env; session-cookie sign-in, console-error guard, helpers
+├── shell.spec.ts              # navigation, skip link, landmarks, drawer, themes, no overflow at 320/768/1280
+├── auth.spec.ts               # gate, callback safety, OAuth request, cookie flags, no session re-issue, isolation
+├── journeys.spec.ts           # Journeys A–E
+├── settings.spec.ts           # reset, export/import, remove demo data, recovery screen
+└── accessibility.spec.ts      # axe WCAG 2.2 A/AA scans in both themes, reduced motion, visible focus
 ```
 
 ### 4.1 Cache Components and preserved routes [Implemented]
@@ -521,7 +534,8 @@ MVP providers: `manual` (available, local), `demo` (fixtures), and `github` and 
 | Authorization | `src/proxy.ts` runs `decideAccess` on every request except build assets: signed-out page requests redirect to `/sign-in?callbackUrl=…`, API requests get 401. Public: `/sign-in`, `/api/auth/*`, `/api/account`. There is no server-held workspace data to authorize yet. | Every server read and write checks the session user owns the resource (T10.4) |
 | Workspace scoping | `/api/account` reports `unavailable`, `signed_out`, or `signed_in` with `{ id, name, email }` (validated by `accountStateSchema` in the browser). `WorkspaceProvider` creates a store only for `signed_in`, using `workspaceStorageKeys(scope)`; signed out, unknown, unavailable, or failed → no store, and `WorkspaceGate` explains why (D-030, D-031). The account is re-checked when the tab becomes visible. | Server-side storage per account |
 | OAuth | Google authorization-code flow run by Auth.js: PKCE and `state` checked on the callback (`/api/auth/callback/google`), CSRF token on sign-in/sign-out. No Google access or refresh token is kept. | GitHub OAuth (T10.2) with server-side tokens |
-| Sessions | Encrypted JWT in an HTTP-only, `SameSite=Lax` cookie (`Secure` on HTTPS) managed by Auth.js. The avatar URL is dropped from the token. Sign-out clears the cookie, then the browser loads `/sign-in` with a full navigation so no workspace stays in memory. | |
+| Sessions | Encrypted JWT in an HTTP-only, `SameSite=Lax` cookie (`Secure` on HTTPS) managed by Auth.js. The avatar URL is dropped from the token. Sign-out clears the cookie, then the browser loads `/sign-in` with a full navigation so no workspace stays in memory. The proxy reads the session but never re-issues it (`withoutSessionRefresh`, D-032): Auth.js would otherwise re-set the cookie on every proxied response, including background prefetches, and a late response could put back a session that was just signed out or replaced. Deletions of an unreadable cookie still pass. So a session lasts Auth.js's `maxAge` (30 days) from sign-in, without sliding renewal. | Server-side session revocation (needs a database, T10.4) |
+| Response headers | `next.config.ts` sends `Content-Security-Policy: frame-ancestors 'none'`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, and a restrictive `Permissions-Policy` on every route; `X-Powered-By` is off (D-034). | A script-src CSP; Next.js's inline scripts need a per-request nonce, which makes every page dynamic (memory.md open question 9) |
 | Server-only credentials | `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` as plain env vars, read only in `src/auth.ts`, never `NEXT_PUBLIC_*` | `GITHUB_CLIENT_SECRET` |
 | Environment variables | `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` are required to use the app (tests, lint, and build need none). Read at server start (restart after changes); the sign-in page lists missing names only in development. | Validated at startup with a schema |
 | Input validation | Zod for forms, imports, persisted data, and the `/api/account` response. `safeCallbackPath` accepts only same-site paths after sign-in. | Same schemas re-used server-side |
@@ -611,15 +625,16 @@ Logging: development-only `console.warn`/`console.error` with error codes. Works
 | Unit | Vitest | Review transitions (every cell of §7.1), claim origin rules, proposal templates (no invented numbers), ingestion validation and de-duplication, URL validation, completeness, tailoring scoring, migrations, storage load/save including corrupt data |
 | Component | Vitest, Testing Library, jsdom | Review item actions, form validation messages, theme toggle state, confirmation dialogs, labeled demo data rendering |
 | Integration | Vitest | Store with real reducer and an in-memory storage adapter: approve → claim appears, edits persist, export → import round trip |
-| End-to-end | Playwright (Chromium) | Journeys A–E, theme persistence without flash, reload persistence, keyboard-only navigation of the shell |
+| End-to-end | Playwright (Chromium), `npm run test:e2e` after `npm run build` | Journeys A–E, sign-in gate and account isolation, theme persistence without flash, reload persistence, keyboard navigation of the shell, no horizontal overflow, export/import/reset, recovery screen. Fails on any browser console error the test didn't declare. |
+| Accessibility | axe-core via `@axe-core/playwright` | WCAG 2.2 A/AA rules on every page in both themes plus a populated resume builder and the sign-in page. axe covers a subset of WCAG; screen-reader behavior is reviewed by hand. |
 | Static | `npm run lint`, `npm run typecheck`, `npm run build` | Run on every change |
 
 ## 16. Deployment and environment
 
-- **Local development:** `npm install`, then `npm run dev` (http://localhost:3000). No env vars are required.
+- **Local development:** `npm install`, set `AUTH_SECRET`, `AUTH_GOOGLE_ID`, and `AUTH_GOOGLE_SECRET` in `.env.local` (README → "Google sign-in"), then `npm run dev` (http://localhost:3000). Without them every page redirects to `/sign-in` (D-031). Tests, lint, type check, and build need no variables.
 - **Production build:** `npm run build`, then `npm run start`. It can run on any Node.js host that meets the `engines` field. Data still lives only in each visitor's browser.
-- **Environment variables:** none required. `.env.example` lists reserved, commented-out names for future server-only configuration.
-- **Future prerequisites:** a registered GitHub OAuth app, a database, an auth secret, a publisher target, and server env var validation.
+- **Environment variables:** the three sign-in variables above are required to use the app; self-hosting with `npm run start` also needs `AUTH_TRUST_HOST=true` or `AUTH_URL`. `.env.example` documents them and lists reserved, commented-out names for future integrations.
+- **Future prerequisites:** a registered GitHub OAuth app, a database, a publisher target, and server env var validation.
 - **Known MVP limitations:** single browser and single device. Clearing site data erases the workspace (mitigated by JSON export). No real integrations. No publishing. Print-to-PDF only.
 
 ## 17. Architectural decisions
@@ -659,3 +674,6 @@ Full context and status are kept in [`memory.md`](./memory.md#decision-log), usi
 | D-029 | Google sign-in with Auth.js v5 (`next-auth@5.0.0-beta.32`, pinned), JWT sessions, no database; blocked unless all sign-in variables are set (made compulsory by D-031) | Auth.js v4 (stable); Better Auth; homemade OAuth | Established library (rules.md §7.3.9), App Router-native API (`auth()`, proxy wrapper, server actions), Next 16 peer support; v5 is published as beta | No user table; account id is `google:<sub>`; beta upgrades need care |
 | D-030 | Workspace scoped per account in the browser (`updater:workspace:v1:account:<id>`), chosen from the server's `/api/account` answer; no store while the account is unknown or signed out | Server-side workspace storage now (T10.4) | Delivers per-user portfolios and resumes without a database decision; keeps pages static | Not cross-device; readable via devtools on a shared browser profile; T10.4 removes both |
 | D-031 | Google sign-in is compulsory: no unauthenticated mode; missing configuration blocks the app | Optional sign-in with a local mode (D-029 as first built) | Owner decision (2026-10-30) | Running the app needs Google credentials; rules.md §7.5.6 amended; tests and build still need none |
+| D-032 | The proxy never re-issues the session cookie | Keep Auth.js's per-request renewal; disable route prefetching | A late prefetch response re-set an old session after the cookie changed (Phase D) | Fixed 30-day session lifetime, no sliding renewal |
+| D-033 | Committed Playwright suite signs in with real Auth.js cookies minted from a test-only secret | A test or bypass mode in the app; mocking Auth.js | No simulated sign-in in shipped code (rules.md §7.5.2) | `@playwright/test` pinned to the container's browser build; needs `npm run build` first |
+| D-034 | Static security headers in `next.config.ts`; no script-src CSP yet | Nonce-based CSP now | Blocks clickjacking of destructive actions without making pages dynamic | Script injection defence still relies on React text rendering (§10) |

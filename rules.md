@@ -39,6 +39,8 @@ Last updated: 2026-10-30 · Related: [`PRD.md`](./PRD.md) · [`architecture.md`]
 8. Enforce server-side authorization once user accounts and server storage exist. Client checks are never sufficient.
 9. Do not implement homemade cryptography or authentication. Use platform primitives and established libraries.
 10. Do not log tokens, workspace contents, raw source payloads, or unnecessary personal data.
+11. Request-level code (`src/proxy.ts`) reads the session but never re-issues the session cookie. Only the sign-in callback sets it and only sign-out clears it, so no late response can undo a sign-out or an account change (D-032).
+12. Never add a test, bypass, or fake-sign-in mode to shipped code. End-to-end tests sign in with real Auth.js session cookies encrypted with a test-only secret (D-033).
 
 ## 7.4 Engineering quality
 

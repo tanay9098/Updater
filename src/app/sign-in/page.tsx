@@ -1,6 +1,7 @@
 import { Suspense, type ReactNode } from "react";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { connection } from "next/server";
 import { auth, authConfig } from "@/auth";
 import { ProductMark } from "@/components/layout/product-mark";
 import { GoogleSignInButton } from "@/components/account/google-sign-in-button";
@@ -61,6 +62,9 @@ async function SignInContent({ searchParams }: { searchParams: PageProps<"/sign-
     );
   }
 
+  // Reading the session makes Auth.js generate random values (CSRF token), which
+  // Cache Components only allows at request time, not in a (runtime) prerender.
+  await connection();
   const session = await auth();
   if (session?.accountId) redirect(callbackUrl);
   const error = signInErrorMessage(first(params.error));

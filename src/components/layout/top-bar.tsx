@@ -11,7 +11,7 @@ export function TopBar() {
     <header className="sticky top-0 z-30 flex print:hidden h-14 shrink-0 items-center gap-3 border-b border-border bg-surface px-4 sm:px-6 lg:px-8">
       <MobileNav />
       <div className="lg:hidden">
-        <ProductMark />
+        <ProductMark compact />
       </div>
       <div className="hidden min-w-0 lg:block">
         <CurrentSection />
