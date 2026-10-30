@@ -12,7 +12,7 @@ vi.mock("next/link", () => ({
 }));
 
 import { exportWorkspace } from "@/features/workspace/transfer";
-import { demoWorkspace, workspaceWithProfile } from "@/test/fixtures";
+import { demoWorkspace, TEST_KEYS, workspaceWithProfile } from "@/test/fixtures";
 import { renderWithWorkspace, storedWorkspace } from "@/test/render";
 import { WorkspaceGate } from "@/components/workspace/workspace-gate";
 import { SettingsView } from "./settings-view";
@@ -30,7 +30,7 @@ describe("SettingsView (T8.1–T8.6)", () => {
   it("describes privacy accurately and mirrors source statuses", async () => {
     renderSettings();
     const privacy = await screen.findByRole("region", { name: "Privacy" });
-    expect(privacy).toHaveTextContent("stored only in this browser");
+    expect(privacy).toHaveTextContent("stored in this browser's local storage, under your account");
     expect(privacy).toHaveTextContent("no analytics");
     const integrations = screen.getByRole("region", { name: "Integrations" });
     expect(within(integrations).getAllByText("Planned")).toHaveLength(2);
@@ -41,11 +41,12 @@ describe("SettingsView (T8.1–T8.6)", () => {
   it("a failed import changes nothing and lists the errors", async () => {
     const user = userEvent.setup();
     const { memory } = renderSettings();
-    const before = memory.data.get("updater:workspace:v1");
+    const before = memory.data.get(TEST_KEYS.workspace);
+    expect(before).toBeDefined();
     const input = (await screen.findByRole("region", { name: "Data" })).querySelector('input[type="file"]') as HTMLInputElement;
     await user.upload(input, new File(['{"schemaVersion":1,"profile":42}'], "bad.json", { type: "application/json" }));
     expect(await screen.findByText("Import failed. Nothing was changed.")).toBeInTheDocument();
-    expect(memory.data.get("updater:workspace:v1")).toBe(before);
+    expect(memory.data.get(TEST_KEYS.workspace)).toBe(before);
   });
 
   it("a valid import replaces the workspace only after confirmation", async () => {
@@ -68,12 +69,12 @@ describe("SettingsView (T8.1–T8.6)", () => {
     let dialog = await screen.findByRole("alertdialog", { name: "Reset workspace?" });
     expect(dialog).toHaveTextContent("8 proposals");
     await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
-    expect(memory.data.has("updater:workspace:v1")).toBe(true);
+    expect(memory.data.has(TEST_KEYS.workspace)).toBe(true);
 
     await user.click(screen.getByRole("button", { name: "Reset workspace…" }));
     dialog = await screen.findByRole("alertdialog", { name: "Reset workspace?" });
     await user.click(within(dialog).getByRole("button", { name: "Reset workspace" }));
-    await waitFor(() => expect(memory.data.has("updater:workspace:v1")).toBe(false));
+    await waitFor(() => expect(memory.data.has(TEST_KEYS.workspace)).toBe(false));
     expect(await screen.findByText("Workspace reset")).toBeInTheDocument();
   });
 

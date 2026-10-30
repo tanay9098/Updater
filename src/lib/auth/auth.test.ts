@@ -1,18 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { decideAccess, isPublicPath, safeCallbackPath } from "./access";
-import { accountStateSchema, initialsOf, scopeFromKey, scopeKey, workspaceScopeOf } from "./account";
+import { accountStateSchema, initialsOf, workspaceScopeOf } from "./account";
 import { readAuthConfig } from "./config";
 import { signInErrorMessage } from "./errors";
 
 describe("readAuthConfig", () => {
-  it("is off when nothing is set, so local development needs no credentials", () => {
-    expect(readAuthConfig({})).toEqual({ state: "off" });
-    expect(readAuthConfig({ AUTH_SECRET: "  ", AUTH_GOOGLE_ID: "" })).toEqual({ state: "off" });
+  it("has no mode without sign-in: nothing set means everything is missing", () => {
+    expect(readAuthConfig({})).toEqual({ state: "missing", missing: ["AUTH_SECRET", "AUTH_GOOGLE_ID", "AUTH_GOOGLE_SECRET"] });
+    expect(readAuthConfig({ AUTH_SECRET: "  ", AUTH_GOOGLE_ID: "" }).state).toBe("missing");
   });
 
-  it("fails closed when only part of the configuration is set", () => {
+  it("lists exactly what is missing when part of the configuration is set", () => {
     expect(readAuthConfig({ AUTH_GOOGLE_ID: "id" })).toEqual({
-      state: "incomplete",
+      state: "missing",
       missing: ["AUTH_SECRET", "AUTH_GOOGLE_SECRET"],
     });
   });
@@ -28,10 +28,6 @@ describe("readAuthConfig", () => {
 });
 
 describe("decideAccess", () => {
-  it("allows everything in local mode", () => {
-    expect(decideAccess({ pathname: "/portfolio", mode: "off", signedIn: false })).toEqual({ action: "allow" });
-  });
-
   it("redirects signed-out page requests to sign-in and keeps the destination", () => {
     expect(decideAccess({ pathname: "/resumes/r1", search: "?x=1", mode: "ready", signedIn: false })).toEqual({
       action: "redirect",
@@ -47,12 +43,12 @@ describe("decideAccess", () => {
     expect(decideAccess({ pathname: "/", mode: "ready", signedIn: true })).toEqual({ action: "allow" });
   });
 
-  it("blocks the app when the configuration is incomplete, even with a cookie", () => {
-    expect(decideAccess({ pathname: "/", mode: "incomplete", signedIn: true })).toEqual({
+  it("blocks the app when sign-in isn't configured, even with a cookie", () => {
+    expect(decideAccess({ pathname: "/", mode: "missing", signedIn: true })).toEqual({
       action: "redirect",
       to: "/sign-in",
     });
-    expect(decideAccess({ pathname: "/api/x", mode: "incomplete", signedIn: false })).toEqual({ action: "deny" });
+    expect(decideAccess({ pathname: "/api/x", mode: "missing", signedIn: false })).toEqual({ action: "deny" });
   });
 
   it("keeps sign-in, Auth.js, and account status reachable without a session", () => {
@@ -91,17 +87,11 @@ describe("account state", () => {
     expect(accountStateSchema.safeParse({ status: "admin" }).success).toBe(false);
   });
 
-  it("opens a workspace only for local mode or a signed-in account", () => {
-    expect(workspaceScopeOf({ status: "local" })).toEqual({ kind: "local" });
+  it("opens a workspace only for a signed-in account", () => {
+    expect(accountStateSchema.safeParse({ status: "local" }).success).toBe(false);
     expect(workspaceScopeOf(signedIn)).toEqual({ kind: "account", accountId: "google:123" });
     expect(workspaceScopeOf({ status: "signed_out" })).toBeNull();
     expect(workspaceScopeOf({ status: "unavailable" })).toBeNull();
-  });
-
-  it("round-trips scope keys, including ids with colons", () => {
-    const scope = { kind: "account", accountId: "google:123" } as const;
-    expect(scopeFromKey(scopeKey(scope))).toEqual(scope);
-    expect(scopeFromKey(scopeKey({ kind: "local" }))).toEqual({ kind: "local" });
   });
 
   it("derives initials from the name or email only", () => {

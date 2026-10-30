@@ -2,10 +2,11 @@ import { describe, expect, it } from "vitest";
 import { workspaceSchema } from "@/lib/validation/domain";
 import { createEmptyWorkspace } from "@/features/workspace/workspace";
 import { exportWorkspace, importWorkspace } from "@/features/workspace/transfer";
-import { demoWorkspace, T0, T1 } from "@/test/fixtures";
+import { demoWorkspace, T0, T1, TEST_KEYS } from "@/test/fixtures";
 import {
   createMemoryKeyValueStorage,
   createWorkspaceStorage,
+  LEGACY_WORKSPACE_KEYS,
   WORKSPACE_RECOVERY_KEY,
   WORKSPACE_STORAGE_KEY,
   workspaceStorageKeys,
@@ -15,13 +16,13 @@ import { migrateWorkspace } from "./migrations";
 
 describe("WorkspaceStorage (T3.3)", () => {
   it("returns null when nothing is stored", () => {
-    const storage = createWorkspaceStorage(() => createMemoryKeyValueStorage());
+    const storage = createWorkspaceStorage(() => createMemoryKeyValueStorage(), TEST_KEYS);
     expect(storage.load()).toEqual({ ok: true, value: { workspace: null, notices: [] } });
   });
 
   it("round-trips a valid workspace", () => {
     const memory = createMemoryKeyValueStorage();
-    const storage = createWorkspaceStorage(() => memory);
+    const storage = createWorkspaceStorage(() => memory, TEST_KEYS);
     const ws = demoWorkspace();
     expect(storage.save(ws, T1)).toEqual({ ok: true, value: { savedAt: T1 } });
     const loaded = storage.load();
@@ -29,22 +30,22 @@ describe("WorkspaceStorage (T3.3)", () => {
   });
 
   it("preserves corrupt JSON under the recovery key and reports storage_corrupt", () => {
-    const memory = createMemoryKeyValueStorage({ [WORKSPACE_STORAGE_KEY]: "{not json" });
-    const storage = createWorkspaceStorage(() => memory);
+    const memory = createMemoryKeyValueStorage({ [TEST_KEYS.workspace]: "{not json" });
+    const storage = createWorkspaceStorage(() => memory, TEST_KEYS);
     const loaded = storage.load();
     expect(loaded.ok).toBe(false);
     if (!loaded.ok) expect(loaded.error.code).toBe("storage_corrupt");
-    expect(memory.data.get(WORKSPACE_RECOVERY_KEY)).toBe("{not json");
+    expect(memory.data.get(TEST_KEYS.recovery)).toBe("{not json");
     expect(storage.readRecovery()).toBe("{not json");
   });
 
   it("rejects a schema mismatch and keeps the raw value", () => {
     const raw = JSON.stringify({ ...createEmptyWorkspace(), profile: { name: 42 } });
-    const memory = createMemoryKeyValueStorage({ [WORKSPACE_STORAGE_KEY]: raw });
-    const loaded = createWorkspaceStorage(() => memory).load();
+    const memory = createMemoryKeyValueStorage({ [TEST_KEYS.workspace]: raw });
+    const loaded = createWorkspaceStorage(() => memory, TEST_KEYS).load();
     expect(loaded.ok).toBe(false);
     if (!loaded.ok) expect(loaded.error.message).toContain("profile");
-    expect(memory.data.get(WORKSPACE_RECOVERY_KEY)).toBe(raw);
+    expect(memory.data.get(TEST_KEYS.recovery)).toBe(raw);
   });
 
   it("refuses data from a newer format version", () => {
@@ -61,13 +62,13 @@ describe("WorkspaceStorage (T3.3)", () => {
       },
       removeItem: () => {},
     };
-    const quota = createWorkspaceStorage(() => full).save(createEmptyWorkspace(), T0);
+    const quota = createWorkspaceStorage(() => full, TEST_KEYS).save(createEmptyWorkspace(), T0);
     expect(quota.ok).toBe(false);
     if (!quota.ok) expect(quota.error.code).toBe("storage_quota_exceeded");
 
     const blocked = createWorkspaceStorage(() => {
       throw new DOMException("denied", "SecurityError");
-    });
+    }, TEST_KEYS);
     const loaded = blocked.load();
     expect(loaded.ok).toBe(false);
     if (!loaded.ok) expect(loaded.error.code).toBe("storage_unavailable");
@@ -75,8 +76,8 @@ describe("WorkspaceStorage (T3.3)", () => {
   });
 
   it("clear removes the workspace and the recovery copy", () => {
-    const memory = createMemoryKeyValueStorage({ [WORKSPACE_STORAGE_KEY]: "x", [WORKSPACE_RECOVERY_KEY]: "y", "updater:theme": "dark" });
-    expect(createWorkspaceStorage(() => memory).clear().ok).toBe(true);
+    const memory = createMemoryKeyValueStorage({ [TEST_KEYS.workspace]: "x", [TEST_KEYS.recovery]: "y", "updater:theme": "dark" });
+    expect(createWorkspaceStorage(() => memory, TEST_KEYS).clear().ok).toBe(true);
     expect(Array.from(memory.data.keys())).toEqual(["updater:theme"]);
   });
 });
@@ -161,15 +162,12 @@ describe("export and import (FR-DATA-04)", () => {
   });
 });
 
-describe("account-scoped workspace storage (D-030)", () => {
+describe("account-scoped workspace storage (D-030, D-031)", () => {
   const accountA = { kind: "account", accountId: "google:111" } as const;
   const accountB = { kind: "account", accountId: "google:222" } as const;
 
-  it("gives each account its own keys and keeps local mode on the original keys", () => {
-    expect(workspaceStorageKeys({ kind: "local" })).toEqual({
-      workspace: WORKSPACE_STORAGE_KEY,
-      recovery: WORKSPACE_RECOVERY_KEY,
-    });
+  it("gives each account its own keys, separate from the pre-sign-in keys", () => {
+    expect(LEGACY_WORKSPACE_KEYS).toEqual({ workspace: WORKSPACE_STORAGE_KEY, recovery: WORKSPACE_RECOVERY_KEY });
     const a = workspaceStorageKeys(accountA);
     const b = workspaceStorageKeys(accountB);
     expect(a.workspace).toBe("updater:workspace:v1:account:google%3A111");
@@ -180,12 +178,12 @@ describe("account-scoped workspace storage (D-030)", () => {
     const memory = createMemoryKeyValueStorage();
     const storageA = createWorkspaceStorage(() => memory, workspaceStorageKeys(accountA));
     const storageB = createWorkspaceStorage(() => memory, workspaceStorageKeys(accountB));
-    const local = createWorkspaceStorage(() => memory);
+    const legacy = createWorkspaceStorage(() => memory, LEGACY_WORKSPACE_KEYS);
     const ws = demoWorkspace();
 
     expect(storageA.save(ws, T1).ok).toBe(true);
     expect(storageB.load()).toEqual({ ok: true, value: { workspace: null, notices: [] } });
-    expect(local.load()).toEqual({ ok: true, value: { workspace: null, notices: [] } });
+    expect(legacy.load()).toEqual({ ok: true, value: { workspace: null, notices: [] } });
 
     expect(storageB.save(createEmptyWorkspace(), T1).ok).toBe(true);
     expect(storageB.clear().ok).toBe(true);

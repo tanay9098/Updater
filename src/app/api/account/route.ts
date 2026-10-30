@@ -8,14 +8,13 @@ import type { AccountState } from "@/lib/auth/account";
  * session cookie on every request and never cached.
  */
 export async function GET() {
-  // Without this, local mode reads no request data and would be prerendered at build time.
+  // Without this, the "unavailable" answer reads no request data and would be prerendered at build time.
   await connection();
   return Response.json(await accountState(), { headers: { "Cache-Control": "private, no-store" } });
 }
 
 async function accountState(): Promise<AccountState> {
-  if (authConfig.state === "off") return { status: "local" };
-  if (authConfig.state === "incomplete") return { status: "unavailable" };
+  if (authConfig.state === "missing") return { status: "unavailable" };
   const session = await auth();
   if (!session?.accountId) return { status: "signed_out" };
   return {

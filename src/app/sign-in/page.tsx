@@ -1,23 +1,20 @@
 import { Suspense, type ReactNode } from "react";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth, authConfig } from "@/auth";
 import { ProductMark } from "@/components/layout/product-mark";
 import { GoogleSignInButton } from "@/components/account/google-sign-in-button";
 import { Alert } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
 import { LoadingState, Skeleton } from "@/components/ui/skeleton";
 import { safeCallbackPath } from "@/lib/auth/access";
-import { AUTH_ENV_VARS } from "@/lib/auth/config";
 import { signInWithGoogle } from "@/lib/auth/actions";
 import { signInErrorMessage } from "@/lib/auth/errors";
 
 export const metadata: Metadata = { title: "Sign in" };
 
 /**
- * Sign-in and sign-up (design.md §17). Google is the only method; the first
- * sign-in creates the account. The page sits outside the app shell, and its
+ * Sign-in and sign-up (design.md §4). A Google sign-in is required to use
+ * Updater (D-031); the first sign-in creates the account. The page sits outside the app shell, and its
  * request-time part streams in behind Suspense (Cache Components).
  */
 export default function SignInPage({ searchParams }: PageProps<"/sign-in">) {
@@ -48,27 +45,11 @@ async function SignInContent({ searchParams }: { searchParams: PageProps<"/sign-
   const params = await searchParams;
   const callbackUrl = safeCallbackPath(first(params.callbackUrl));
 
-  if (authConfig.state === "off") {
-    return (
-      <Card
-        title="Sign-in isn't set up"
-        description="This installation runs in local mode: one workspace, stored only in this browser, with no account."
-      >
-        <p className="text-support text-muted">
-          To turn on Google sign-in, set {AUTH_ENV_VARS.join(", ")} as described in <code>.env.example</code>.
-        </p>
-        <Button asChild variant="primary" className="self-start">
-          <Link href="/">Open Updater</Link>
-        </Button>
-      </Card>
-    );
-  }
-
-  if (authConfig.state === "incomplete") {
+  if (authConfig.state === "missing") {
     return (
       <Card
         title="Sign-in isn't available"
-        description="Sign-in is turned on for this installation but isn't fully configured, so nobody can sign in yet."
+        description="Updater requires a Google sign-in, but this server isn't configured for it yet, so nobody can sign in."
       >
         {/* Which variables are missing is only shown in development, not to every visitor. */}
         {process.env.NODE_ENV !== "production" ? (

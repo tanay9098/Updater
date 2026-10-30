@@ -277,14 +277,14 @@ Priorities: **P0** is required for the MVP, **P1** is expected in the MVP if fea
 | FR-SET-02 | P0 | Destructive actions require confirmation. | Reset workspace, remove demo data, and delete resume use a confirmation dialog naming what is lost. |
 | FR-SET-03 | P0 | Privacy information accurately describes the MVP's data handling. | The text states that data stays in this browser, nothing is sent to Updater servers, and there are no analytics. |
 
-### 8.12a Accounts and sign-in (optional, post-MVP — T10.5)
+### 8.12a Accounts and sign-in (compulsory, post-MVP — T10.5, D-031)
 
 | ID | Priority | Requirement | Acceptance criteria |
 | --- | --- | --- | --- |
-| FR-AUTH-01 | P2 | When an installation configures Google sign-in, every page requires a signed-in account. The first sign-in creates the account. | Signed-out requests to pages redirect to `/sign-in` and back after signing in; API requests get 401. Partly configured sign-in blocks the app instead of falling back to local mode. |
+| FR-AUTH-01 | P2 | Every page requires a Google sign-in. The first sign-in creates the account. | Signed-out requests to pages redirect to `/sign-in` and back after signing in; API requests get 401. There is no way to use the app without an account. |
 | FR-AUTH-02 | P2 | Each account's portfolio and resumes are built only from that account's workspace. | On one browser, a second account sees none of the first account's profile, projects, claims, or resumes, and the first account's data is intact when it signs back in. No workspace opens while the account is unknown or signed out. |
-| FR-AUTH-03 | P2 | Without sign-in configuration the app works exactly as the local MVP. | No credentials are needed for `npm run dev`; the local workspace key is unchanged. |
-| FR-AUTH-04 | P2 | A workspace saved before sign-in was turned on is never given to an account automatically. | Settings → Account offers to move it into the signed-in account after a confirmation that names what is replaced; the unowned copy is then removed. |
+| FR-AUTH-03 | P2 | A server without sign-in configuration blocks the app instead of running without accounts. | With any of `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` unset, every page redirects to `/sign-in`, which says sign-in isn't available (missing names only in development); APIs answer 503; no workspace opens. |
+| FR-AUTH-04 | P2 | A workspace saved before sign-in became compulsory is never given to an account automatically. | Settings → Account offers to move it into the signed-in account after a confirmation that names what is replaced; the unowned copy is then removed. |
 
 ### 8.13 Error handling and recovery
 
@@ -308,7 +308,7 @@ Priorities: **P0** is required for the MVP, **P1** is expected in the MVP if fea
 | NFR-07 | Type safety | TypeScript `strict`. No `any` without a written justification. Persisted and imported data is validated at runtime with schemas. |
 | NFR-08 | Testability | Pure state transitions and validation are unit-tested. Key components have component tests. Primary journeys have end-to-end coverage where browser automation is available. |
 | NFR-09 | Clear failure behavior | Every failure has a user-visible message stating what failed and what to do next. Success messages appear only after success. |
-| NFR-10 | Graceful degradation | The app is fully usable with no network access, no credentials, and all optional integrations unavailable. |
+| NFR-10 | Graceful degradation | The app is fully usable with all optional integrations unavailable. Google sign-in is not optional (D-031): it needs network access to Google and configured credentials. |
 
 ## 10. Data integrity and evidence requirements
 
@@ -360,7 +360,7 @@ These remain future work until genuinely implemented and verified:
 - Automated and scheduled synchronization, with background jobs.
 - Blog integrations: RSS/Atom feeds, DEV, Hashnode, Medium.
 - Server-side durable storage and multi-device synchronization.
-- User accounts beyond sign-in: server-held, per-account storage that follows the account across devices. (Optional Google sign-in with a separate workspace per account in the browser is implemented: T10.5, architecture.md §10.)
+- User accounts beyond sign-in: server-held, per-account storage that follows the account across devices. (Compulsory Google sign-in with a separate workspace per account in the browser is implemented: T10.5, architecture.md §10.)
 - AI-assisted summarization and drafting through a replaceable provider. It is optional and evidence-grounded.
 - Automated resume generation beyond selection-based tailoring.
 - Real public portfolio deployment, with status, URL, and rollback.

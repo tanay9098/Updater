@@ -10,7 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { browserWorkspaceStorage, workspaceStorageKeys } from "@/lib/data/storage";
-import { scopeFromKey, scopeKey, workspaceScopeOf } from "@/lib/auth/account";
+import { workspaceScopeOf } from "@/lib/auth/account";
 import {
   createWorkspaceStore,
   type ActionOutcome,
@@ -26,12 +26,11 @@ const WorkspaceContext = createContext<WorkspaceStore | null>(null);
 
 const LOADING: WorkspaceSnapshot = { phase: "loading" };
 
-/** The scope key of the workspace in use, or null while no workspace may be opened. */
-export function useWorkspaceScopeKey(): string | null {
+/** The account whose workspace is open, or null while no workspace may be opened. */
+export function useWorkspaceAccountId(): string | null {
   const { snapshot } = useAccount();
   if (snapshot.phase !== "ready") return null;
-  const scope = workspaceScopeOf(snapshot.state);
-  return scope ? scopeKey(scope) : null;
+  return workspaceScopeOf(snapshot.state)?.accountId ?? null;
 }
 
 /**
@@ -39,28 +38,29 @@ export function useWorkspaceScopeKey(): string | null {
  * client render show the loading state; the stored workspace is read after
  * hydration, so the server never sees workspace data (architecture.md §11).
  *
- * The store belongs to the account the server reports (D-030): each account
- * gets its own storage keys, and no store exists while the account is
- * unknown or signed out, so another account's workspace can never be shown.
+ * The store belongs to the account the server reports (D-030, D-031): each
+ * account gets its own storage keys, and no store exists while the account
+ * is unknown or signed out, so another account's workspace can never be shown.
  */
 export function WorkspaceProvider({ children, store: injected }: { children: ReactNode; store?: WorkspaceStore }) {
-  const scope = useWorkspaceScopeKey();
+  const accountId = useWorkspaceAccountId();
   const store = useMemo(
-    () => injected ?? (scope ? createWorkspaceStore(browserWorkspaceStorage(scopeFromKey(scope))) : null),
-    [injected, scope],
+    () =>
+      injected ?? (accountId ? createWorkspaceStore(browserWorkspaceStorage({ kind: "account", accountId })) : null),
+    [injected, accountId],
   );
 
   useEffect(() => {
     if (!store) return;
     store.load();
     // Another tab saved: reload so this tab doesn't overwrite newer data with stale state.
-    const key = workspaceStorageKeys(scopeFromKey(scope ?? "local")).workspace;
+    const key = accountId ? workspaceStorageKeys({ kind: "account", accountId }).workspace : null;
     function onStorage(event: StorageEvent) {
-      if (event.key === key || event.key === null) store?.load();
+      if (event.key === null || (key !== null && event.key === key)) store?.load();
     }
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
-  }, [store, scope]);
+  }, [store, accountId]);
 
   return <WorkspaceContext.Provider value={store}>{children}</WorkspaceContext.Provider>;
 }

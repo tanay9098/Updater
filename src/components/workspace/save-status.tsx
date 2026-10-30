@@ -18,7 +18,7 @@ export function SaveStatus({ compact = false }: { compact?: boolean }) {
   const { snapshot: account } = useAccount();
   const { notify } = useToast();
 
-  if (!store && account.phase === "ready" && account.state.status !== "local" && account.state.status !== "signed_in") {
+  if (!store && account.phase === "ready" && account.state.status !== "signed_in") {
     return <StatusLine icon="drive" text="No workspace open" />;
   }
   if (!store || snapshot.phase === "loading") {

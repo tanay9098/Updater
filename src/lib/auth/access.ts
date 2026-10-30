@@ -37,10 +37,11 @@ export function decideAccess({
   mode: AuthMode;
   signedIn: boolean;
 }): AccessDecision {
-  if (mode === "off" || isPublicPath(pathname)) return { action: "allow" };
+  if (isPublicPath(pathname)) return { action: "allow" };
   if (mode === "ready" && signedIn) return { action: "allow" };
   if (pathname === "/api" || pathname.startsWith("/api/")) return { action: "deny" };
-  if (mode === "incomplete") return { action: "redirect", to: SIGN_IN_PATH };
+  // Nobody can sign in yet: the sign-in page explains the missing configuration.
+  if (mode === "missing") return { action: "redirect", to: SIGN_IN_PATH };
   const params = new URLSearchParams({ callbackUrl: `${pathname}${search}` });
   return { action: "redirect", to: `${SIGN_IN_PATH}?${params.toString()}` };
 }

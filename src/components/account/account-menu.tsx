@@ -7,7 +7,7 @@ import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from "@/compo
 import { useAccount } from "./account-provider";
 import { useSignOut } from "./use-sign-out";
 
-/** Top-bar account button (design.md §4). Renders nothing in local mode or while signed out. */
+/** Top-bar account button (design.md §4). Renders nothing until the signed-in account is known. */
 export function AccountMenu() {
   const { snapshot } = useAccount();
   const { signOut, pending } = useSignOut();

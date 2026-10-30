@@ -25,7 +25,7 @@ export default function proxy(request: NextRequest, event: NextFetchEvent) {
   if (authConfig.state === "ready") return guarded(request, event);
   const decision = decideAccess({ pathname: request.nextUrl.pathname, mode: authConfig.state, signedIn: false });
   if (decision.action === "allow") return NextResponse.next();
-  if (decision.action === "deny") return Response.json({ error: "Sign-in isn't fully configured." }, { status: 503 });
+  if (decision.action === "deny") return Response.json({ error: "Sign-in isn't configured." }, { status: 503 });
   return NextResponse.redirect(new URL(decision.to, request.nextUrl.origin));
 }
 

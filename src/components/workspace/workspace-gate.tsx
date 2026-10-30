@@ -10,21 +10,21 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { LoadingState, Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
 import { downloadText } from "./download";
-import { useWorkspaceScopeKey, useWorkspaceSnapshot, useWorkspaceStore } from "./workspace-provider";
+import { useWorkspaceAccountId, useWorkspaceSnapshot, useWorkspaceStore } from "./workspace-provider";
 
 /**
  * Renders its children once the workspace is loaded. Shows skeletons while
  * it hydrates and a recovery screen when the stored data can't be read
  * (FR-DATA-02): export the raw data, or reset.
  *
- * With sign-in configured, nothing opens until the server confirms the
- * account; signed out, it explains how to sign in instead (D-030). The
+ * Nothing opens until the server confirms a signed-in account; signed out,
+ * it explains how to sign in instead (D-030, D-031). The
  * children are keyed by account, so no form state carries over when the
  * account changes.
  */
 export function WorkspaceGate({ children, fallback }: { children: ReactNode; fallback?: ReactNode }) {
   const { snapshot: account } = useAccount();
-  const scope = useWorkspaceScopeKey();
+  const accountId = useWorkspaceAccountId();
   const snapshot = useWorkspaceSnapshot();
   if (account.phase === "error") return <AccountRequired reason="error" message={account.message} />;
   if (account.phase === "ready" && account.state.status === "signed_out") return <AccountRequired reason="signed_out" />;
@@ -42,7 +42,7 @@ export function WorkspaceGate({ children, fallback }: { children: ReactNode; fal
           </ul>
         </Alert>
       ) : null}
-      <Fragment key={scope ?? "injected"}>{children}</Fragment>
+      <Fragment key={accountId ?? "injected"}>{children}</Fragment>
     </>
   );
 }

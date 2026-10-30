@@ -6,7 +6,6 @@ import { AppearanceSettings } from "@/components/theme/appearance-settings";
 import { Panel } from "@/components/ui/panel";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { ProfileForm } from "@/components/portfolio/profile-section";
-import { useAccount } from "@/components/account/account-provider";
 import { useWorkspace } from "@/components/workspace/workspace-provider";
 import { AccountSettings } from "./account-settings";
 import { DataSettings } from "./data-settings";
@@ -14,8 +13,6 @@ import { DataSettings } from "./data-settings";
 /** Settings (design.md §13, FR-SET-01). */
 export function SettingsView() {
   const ws = useWorkspace();
-  const { snapshot: account } = useAccount();
-  const signedIn = account.phase === "ready" && account.state.status === "signed_in";
   return (
     <div className="flex max-w-3xl flex-col gap-8">
       <section id="account" aria-labelledby="account-heading" className="scroll-mt-20 rounded-md border border-border bg-surface">
@@ -86,31 +83,20 @@ export function SettingsView() {
 
       <Panel title="Privacy" description="How this version handles your data.">
         <ul className="flex list-disc flex-col gap-1.5 pl-5 text-body text-foreground-secondary">
-          {signedIn ? (
-            <>
-              <li>
-                Your workspace is stored in this browser&apos;s local storage, under your account. It isn&apos;t sent to
-                Updater&apos;s server or any other service. There are no analytics or tracking.
-              </li>
-              <li>
-                Sign-in uses Google. Updater keeps your Google account ID, name, and email address only in an encrypted,
-                HTTP-only sign-in cookie. No passwords or Google access tokens are stored.
-              </li>
-              <li>
-                Other accounts signing in on this browser can&apos;t open your workspace in Updater. Anyone with access to
-                this browser profile could still read the stored data with developer tools.
-              </li>
-              <li>Signing out keeps your workspace in this browser for your next sign-in. Reset it below to delete it.</li>
-              <li>The workspace doesn&apos;t follow your account to other devices or browsers. Export and import to move it.</li>
-            </>
-          ) : (
-            <>
-              <li>Your workspace is stored only in this browser&apos;s local storage, on this device.</li>
-              <li>Nothing is sent to Updater servers or any other service. There are no analytics or tracking.</li>
-              <li>No passwords, API keys, or access tokens are stored. No account is needed.</li>
-              <li>Anyone with access to this browser profile can read the stored data.</li>
-            </>
-          )}
+          <li>
+            Your workspace is stored in this browser&apos;s local storage, under your account. It isn&apos;t sent to
+            Updater&apos;s server or any other service. There are no analytics or tracking.
+          </li>
+          <li>
+            Sign-in uses Google. Updater keeps your Google account ID, name, and email address only in an encrypted,
+            HTTP-only sign-in cookie. No passwords or Google access tokens are stored.
+          </li>
+          <li>
+            Other accounts signing in on this browser can&apos;t open your workspace in Updater. Anyone with access to
+            this browser profile could still read the stored data with developer tools.
+          </li>
+          <li>Signing out keeps your workspace in this browser for your next sign-in. Reset it below to delete it.</li>
+          <li>The workspace doesn&apos;t follow your account to other devices or browsers. Export and import to move it.</li>
           <li>Clearing this site&apos;s data in your browser deletes the workspace. Export a copy to keep a backup.</li>
           <li>Demo data is fictional and links only to example.com.</li>
         </ul>
