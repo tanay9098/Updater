@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { AppShell } from "@/components/layout/app-shell";
 import { Providers } from "@/components/providers";
 import { ThemeScript } from "@/components/theme/theme-script";
 import { DEFAULT_THEME } from "@/lib/theme/theme";
@@ -22,9 +21,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <ThemeScript />
       </head>
       <body className="min-h-dvh font-sans">
-        <Providers>
-          <AppShell>{children}</AppShell>
-        </Providers>
+        {/* The app shell lives in (workspace)/layout.tsx, so the sign-in page has none. */}
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

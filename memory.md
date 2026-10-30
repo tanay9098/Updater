@@ -2,7 +2,7 @@
 
 This is the durable context for future development sessions. It records confirmed decisions and the **verified** implementation state. Keep it concise and current. Do not use it as a daily diary.
 
-Last updated: 2026-10-29 (end of Phase C)
+Last updated: 2026-10-30 (Google sign-in, T10.5)
 
 ## Project identity
 
@@ -52,11 +52,18 @@ Last updated: 2026-10-29 (end of Phase C)
 | Validation | Zod | Implemented: helpers and strict entity schemas (`src/lib/validation/domain.ts`) |
 | Forms | Controlled components + Zod helpers, explicit Save per section | Implemented |
 | Tests | Vitest + Testing Library + jsdom (D-015); Playwright for E2E | Vitest implemented; Playwright journeys run as a one-off script, committed suite planned (T9.9) |
-| Storage | `localStorage` behind a `WorkspaceStorage` adapter; external store bound with `useSyncExternalStore` | Implemented (T3.3, T3.4) |
+| Storage | `localStorage` behind a `WorkspaceStorage` adapter; external store bound with `useSyncExternalStore` | Implemented (T3.3, T3.4); keys scoped per account when signed in (D-030) |
+| Authentication | Auth.js v5 (`next-auth`), Google provider, JWT sessions, no database; optional (D-029) | Implemented (T10.5); real Google round trip pending owner credentials |
 
 Exact versions live in `package.json` and `package-lock.json`. At Phase A they were: next 16.4.3, react/react-dom 19.3.0, typescript 5.9.3, tailwindcss 4.3.3, eslint 9.39.5.
 
 No dependencies were added in Phase C.
+
+**Dependency added for Google sign-in (T10.5), and why** (rules.md §7.4.4):
+
+| Package | Version | Kind | Reason |
+| --- | --- | --- | --- |
+| `next-auth` | 5.0.0-beta.32 (exact) | runtime | Established authentication library (rules.md §7.3.9) named in architecture.md §10. v5 is the App Router-native API (`auth()`, proxy wrapper, server actions) and declares Next 16 as a peer. It is published under the `beta` tag, so the version is pinned exactly; upgrade deliberately. Brings `@auth/core`, `jose`, `oauth4webapi`. `npm install` reported 0 vulnerabilities. |
 
 **Dependencies added in Phase B, and why** (rules.md §7.4.4):
 
@@ -93,17 +100,19 @@ See the [decision log](#decision-log) below. architecture.md §17 summarizes the
 | Resumes | Implemented: list, create, rename, duplicate, delete, builder with selections, overrides, summary, suggestions, preview, print stylesheet | Unit and component tests; Playwright print emulation and PDF in the dark theme |
 | Settings | Implemented: profile basics, appearance, integration summary, privacy, export, import, remove demo data, restart onboarding, reset | Component tests, Playwright export download |
 | Onboarding | Implemented at `/onboarding`; Overview links to it while incomplete | Playwright Journey A |
-| Tests | Vitest: 21 files, 200 tests | `npm test` passes (see the change history) |
+| Google sign-in and per-account workspaces (T10.5) | Implemented: optional Auth.js Google sign-in, `/sign-in` page, sign-in gate in `src/proxy.ts`, `/api/account`, account menu, Settings → Account (sign out, move a pre-sign-in workspace), account-scoped storage keys. Local mode unchanged when unconfigured. | Unit and component tests. Playwright against `next start` in three modes (local, configured with a dummy Google client, partly configured); signed-in sessions were real Auth.js cookies minted with the test `AUTH_SECRET`. **Not verified:** a real Google consent and callback, which needs the owner's OAuth client. |
+| Tests | Vitest: 23 files, 231 tests | `npm test` passes (see the change history) |
 | Browser verification | Journeys A–E pass in Chromium against `next start` with no console errors; no horizontal overflow on 8 routes at 320/768/1280 px in both themes | One-off Playwright scripts (not committed; T9.9) |
 
 ## Constraints
 
 - The app must run locally with no credentials, network services, or paid dependencies.
-- The MVP has no backend persistence, authentication, AI, or publishing.
+- The MVP has no backend persistence, AI, or publishing. Authentication is optional (Google, T10.5) and never needed for local development.
 - Development container: Node 22.22.0, npm 10.9.4. Outbound HTTPS goes through a proxy, and the npm registry is reachable. Chromium + Playwright are pre-installed (useful for T9.9).
 - The installed Next.js (16.4.x) postdates much model training data. Read `node_modules/next/dist/docs/` before using framework APIs (AGENTS.md).
 - `next dev` rewrites a managed block in `AGENTS.md`. That block must be kept (D-012).
 - Known MVP limitation: data is per-browser and lost if site data is cleared (export mitigates this).
+- Known sign-in limitation (D-030): with sign-in on, each account's workspace is still stored in the browser. It doesn't follow the account to other devices, and anyone with access to the browser profile can read every stored workspace with developer tools. Server persistence (T10.4) removes both.
 
 ## Assumptions and open questions
 
@@ -121,6 +130,8 @@ See the [decision log](#decision-log) below. architecture.md §17 summarizes the
 4. Should approved claims be revocable back into the review queue? Implemented as no (approved is terminal); claims are edited or removed in the portfolio. Revisit if users ask for it.
 5. The browser checks in Phases B and C were one-off Playwright scripts, not committed tests. Recommended: commit them as the `e2e/` suite in T9.9 (Phase D).
 6. Should "Suggest selections" use the role-hint word lists (D-027), or only literal words from the role and keywords? The hints make "Frontend Engineer" match React projects but are an editorial choice.
+7. Server persistence for accounts (T10.4): which database and host? Needed for cross-device workspaces and to stop storing account workspaces in the browser. Not decided; the sign-in work deliberately didn't pick one.
+8. Should signing out offer to delete this browser's copy of the account's workspace (for shared computers)? Today sign-out keeps it and Settings → Data → Reset deletes it.
 
 ## Decision log
 
@@ -154,9 +165,12 @@ See the [decision log](#decision-log) below. architecture.md §17 summarizes the
 | D-026 | 2026-10-29 | Saving editor forms | Explicit Save per section with an "Unsaved changes" marker and a `beforeunload` warning, instead of save-on-blur | Makes unsaved vs saved distinct (Phase C brief) and avoids saving half-typed values | design.md §11 deviation recorded | Accepted |
 | D-027 | 2026-10-29 | Tailoring without AI | Keyword overlap plus a small role-hint word list (frontend → react, css…; backend → api, sql…) | Role titles rarely share words with technologies; still only pre-selects | Open question 6 | Accepted |
 | D-028 | 2026-10-29 | Resume ids exist only in the browser | `/resumes/[resumeId]` reads the id with `useParams` inside `<Suspense>`; the static shell prerenders (◐ partial prerender) | Cache Components requires Suspense for unknown params | The page heading is generic ("Resume builder"); the resume name is an `h2` | Accepted |
+| D-029 | 2026-10-30 | Owner asked for Google sign-up/sign-in | Optional Auth.js v5 (`next-auth@5.0.0-beta.32`, pinned) with the Google provider and JWT sessions, no database. On only when `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` are all set; partly set blocks the app (fails closed). Account id is `google:<providerAccountId>` (Auth.js's `user.id` is random per sign-in without an adapter). PKCE and `state` checks on the callback. | Established library (rules.md §7.3.9); local development stays credential-free (§7.5.6); no simulated sign-in | `src/proxy.ts` gates every request; pages stay static and learn the account from `/api/account` | Accepted |
+| D-030 | 2026-10-30 | Portfolio and resumes must be generated only for the signed-in user | Scope the browser workspace by account: keys `updater:workspace:v1:account:<id>`; a store exists only for local mode or a confirmed signed-in account; signed out or unknown → no store; gate content keyed by account; the account is re-checked when the tab becomes visible. A pre-sign-in workspace is moved into an account only by explicit confirmation. | Delivers per-user data now without choosing a database; resumes and portfolio are built from the open workspace only, so scoping the workspace scopes them | Not cross-device; devtools can read stored workspaces; T10.4 is the follow-up | Accepted |
 
 ## Change history
 
+- **2026-10-30 — Google sign-in (T10.5).** At the owner's request (taken as approval to do this Phase 10 task while Phase C review and Phase D are open), added optional Google sign-up/sign-in with Auth.js and per-account workspaces (D-029, D-030). Moved the workspace pages into the `(workspace)` route group so `/sign-in` has no app shell. Verified: `npm run lint` (clean), `npm run typecheck` (pass), `npm test` (23 files, 231 tests pass), `npm run build` (pass; workspace pages still static, `/sign-in` partial prerender, `/api/*` dynamic, proxy present). Playwright against `next start`: local mode unchanged (no account button, key `updater:workspace:v1`); configured mode redirects signed-out pages to `/sign-in?callbackUrl=…`, API requests get 401, the Google button redirects to `accounts.google.com` with the client id, callback URL, PKCE, and `state`; with two accounts on one browser, the second saw none of the first's profile or resume and the first's data was intact afterwards; sign-out cleared the cookie and returned to `/sign-in`; a tampered cookie was rejected; an off-site `callbackUrl` went to `/`; moving a pre-sign-in workspace replaced the account's workspace and removed the unscoped key; no horizontal overflow at 320/1280 px; no console errors. Partly configured mode redirected to `/sign-in` ("Sign-in isn't available", missing names hidden in production) and answered 503 for APIs. Found and fixed during verification: the sidebar save status required a store and broke the `/_not-found` prerender once no store exists while signed out. Not verified: a real Google consent screen and callback (needs the owner's OAuth client).
 - **2026-10-29 — README status removed.** At the owner's request, the "Current status" section was removed from `README.md`; status lives in this file and `tracker.md`. "Data and privacy", "Known limitations", and "Contributing" were removed too; the rest stays. T1.13's acceptance text was updated to match.
 - **2026-10-29 — Phase C (core functionality).** The owner approved Phase B by requesting Phase C. Implemented the domain model and strict schemas, ingestion with evidence derivation and conflict marking, deterministic proposals, the review state machine, the local storage adapter with recovery, the workspace store, onboarding, Overview, Sources (manual entries, demo workspace, planned GitHub/RSS), Review Queue, Portfolio editor and local preview, resume list and builder with print stylesheet, and Settings (profile basics, integrations, privacy, export, import, remove demo data, restart onboarding, reset). Verified: `npm run lint` (clean), `npm run typecheck` (pass), `npm test` (21 files, 200 tests pass), `npm run build` (pass; all routes static except `/resumes/[resumeId]`, partial prerender). Playwright against `next start`: Journeys A–E pass in Chromium with no console errors; no horizontal overflow at 320/768/1280 px in both themes; print emulation in the dark theme prints black on white without app chrome. Found and fixed during verification: editing a skill proposal allowed names longer than the skill limit (the next load entered recovery; now validated per kind, and the store refuses invalid results, D-020); de-duplicating technologies kept the last spelling instead of the first; `sr-only` count text inside the scrolling tab list overflowed the page at 320 px; skill chips with an evidence button overflowed at 320 px; the print view showed a "Your name" placeholder; the demo indicator said "loaded" after the demo source was removed but kept content remained.
 - **2026-10-28 — Phase B (foundation).** The owner approved Phase A by requesting Phase B. Implemented design tokens for both themes, theme persistence without flash, the responsive shell (sidebar, top bar, drawer, skip link), navigation and six page shells with honest empty states, error and not-found pages, the UI component library on Radix, validation conventions, and Vitest. Also built Settings → Appearance (D-018). Verified: `npm run lint` (clean), `npm run typecheck` (pass), `npm test` (10 files, 75 tests pass), `npm run build` (pass, every route prerendered static), and Playwright checks against `next start` and `next dev` (see *Current implementation state*). Found and fixed during verification: the required-field name ran together ("Name(required)"), the Overview `<title>` skipped the template, the hidden skip link kept its padding, and dark skeletons were invisible.

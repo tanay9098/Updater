@@ -8,6 +8,7 @@ import {
   createWorkspaceStorage,
   WORKSPACE_RECOVERY_KEY,
   WORKSPACE_STORAGE_KEY,
+  workspaceStorageKeys,
   type KeyValueStorage,
 } from "./storage";
 import { migrateWorkspace } from "./migrations";
@@ -157,5 +158,48 @@ describe("export and import (FR-DATA-04)", () => {
       expect(imported.value.workspace.resumes[0].projectIds).toEqual([]);
       expect(imported.value.notices[0]).toContain("Backend");
     }
+  });
+});
+
+describe("account-scoped workspace storage (D-030)", () => {
+  const accountA = { kind: "account", accountId: "google:111" } as const;
+  const accountB = { kind: "account", accountId: "google:222" } as const;
+
+  it("gives each account its own keys and keeps local mode on the original keys", () => {
+    expect(workspaceStorageKeys({ kind: "local" })).toEqual({
+      workspace: WORKSPACE_STORAGE_KEY,
+      recovery: WORKSPACE_RECOVERY_KEY,
+    });
+    const a = workspaceStorageKeys(accountA);
+    const b = workspaceStorageKeys(accountB);
+    expect(a.workspace).toBe("updater:workspace:v1:account:google%3A111");
+    expect(new Set([a.workspace, a.recovery, b.workspace, b.recovery, WORKSPACE_STORAGE_KEY]).size).toBe(5);
+  });
+
+  it("never loads, overwrites, or clears another account's workspace", () => {
+    const memory = createMemoryKeyValueStorage();
+    const storageA = createWorkspaceStorage(() => memory, workspaceStorageKeys(accountA));
+    const storageB = createWorkspaceStorage(() => memory, workspaceStorageKeys(accountB));
+    const local = createWorkspaceStorage(() => memory);
+    const ws = demoWorkspace();
+
+    expect(storageA.save(ws, T1).ok).toBe(true);
+    expect(storageB.load()).toEqual({ ok: true, value: { workspace: null, notices: [] } });
+    expect(local.load()).toEqual({ ok: true, value: { workspace: null, notices: [] } });
+
+    expect(storageB.save(createEmptyWorkspace(), T1).ok).toBe(true);
+    expect(storageB.clear().ok).toBe(true);
+    const loadedA = storageA.load();
+    expect(loadedA.ok && loadedA.value.workspace).toEqual(ws);
+  });
+
+  it("keeps recovery data per account", () => {
+    const keysA = workspaceStorageKeys(accountA);
+    const memory = createMemoryKeyValueStorage({ [keysA.workspace]: "{not json" });
+    const storageA = createWorkspaceStorage(() => memory, keysA);
+    const storageB = createWorkspaceStorage(() => memory, workspaceStorageKeys(accountB));
+    expect(storageA.load().ok).toBe(false);
+    expect(memory.data.get(keysA.recovery)).toBe("{not json");
+    expect(storageB.readRecovery()).toBeNull();
   });
 });

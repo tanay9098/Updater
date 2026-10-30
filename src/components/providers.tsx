@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { AccountProvider } from "@/components/account/account-provider";
 import { ThemeSync } from "@/components/theme/theme-sync";
 import { ToastProvider } from "@/components/ui/toast";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -12,7 +13,9 @@ export function Providers({ children }: { children: ReactNode }) {
     <TooltipProvider delayDuration={400}>
       <ToastProvider>
         <ThemeSync />
-        <WorkspaceProvider>{children}</WorkspaceProvider>
+        <AccountProvider>
+          <WorkspaceProvider>{children}</WorkspaceProvider>
+        </AccountProvider>
       </ToastProvider>
     </TooltipProvider>
   );

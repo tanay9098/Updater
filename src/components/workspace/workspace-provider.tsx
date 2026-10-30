@@ -5,11 +5,12 @@ import {
   useCallback,
   useContext,
   useEffect,
-  useState,
+  useMemo,
   useSyncExternalStore,
   type ReactNode,
 } from "react";
-import { browserWorkspaceStorage, WORKSPACE_STORAGE_KEY } from "@/lib/data/storage";
+import { browserWorkspaceStorage, workspaceStorageKeys } from "@/lib/data/storage";
+import { scopeFromKey, scopeKey, workspaceScopeOf } from "@/lib/auth/account";
 import {
   createWorkspaceStore,
   type ActionOutcome,
@@ -17,6 +18,7 @@ import {
   type WorkspaceSnapshot,
   type WorkspaceStore,
 } from "@/features/workspace/store";
+import { useAccount } from "@/components/account/account-provider";
 import { useToast, type ToastOptions } from "@/components/ui/toast";
 import type { Workspace } from "@/types/domain";
 
@@ -24,25 +26,48 @@ const WorkspaceContext = createContext<WorkspaceStore | null>(null);
 
 const LOADING: WorkspaceSnapshot = { phase: "loading" };
 
+/** The scope key of the workspace in use, or null while no workspace may be opened. */
+export function useWorkspaceScopeKey(): string | null {
+  const { snapshot } = useAccount();
+  if (snapshot.phase !== "ready") return null;
+  const scope = workspaceScopeOf(snapshot.state);
+  return scope ? scopeKey(scope) : null;
+}
+
 /**
  * Provides the workspace store to every route. The server and the first
  * client render show the loading state; the stored workspace is read after
  * hydration, so the server never sees workspace data (architecture.md §11).
+ *
+ * The store belongs to the account the server reports (D-030): each account
+ * gets its own storage keys, and no store exists while the account is
+ * unknown or signed out, so another account's workspace can never be shown.
  */
 export function WorkspaceProvider({ children, store: injected }: { children: ReactNode; store?: WorkspaceStore }) {
-  const [store] = useState(() => injected ?? createWorkspaceStore(browserWorkspaceStorage()));
+  const scope = useWorkspaceScopeKey();
+  const store = useMemo(
+    () => injected ?? (scope ? createWorkspaceStore(browserWorkspaceStorage(scopeFromKey(scope))) : null),
+    [injected, scope],
+  );
 
   useEffect(() => {
+    if (!store) return;
     store.load();
     // Another tab saved: reload so this tab doesn't overwrite newer data with stale state.
+    const key = workspaceStorageKeys(scopeFromKey(scope ?? "local")).workspace;
     function onStorage(event: StorageEvent) {
-      if (event.key === WORKSPACE_STORAGE_KEY || event.key === null) store.load();
+      if (event.key === key || event.key === null) store?.load();
     }
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
-  }, [store]);
+  }, [store, scope]);
 
   return <WorkspaceContext.Provider value={store}>{children}</WorkspaceContext.Provider>;
+}
+
+/** The store, or null while no workspace is open (account unknown or signed out). */
+export function useOptionalWorkspaceStore(): WorkspaceStore | null {
+  return useContext(WorkspaceContext);
 }
 
 export function useWorkspaceStore(): WorkspaceStore {
@@ -51,15 +76,15 @@ export function useWorkspaceStore(): WorkspaceStore {
   return store;
 }
 
-export function useWorkspaceSnapshot(): WorkspaceSnapshot {
-  const store = useWorkspaceStore();
-  return useSyncExternalStore(store.subscribe, store.getSnapshot, () => LOADING);
-}
-
 const noopSubscribe = () => () => {};
 const loadingSnapshot = () => LOADING;
 
-/** Like `useWorkspaceSnapshot`, but reads "loading" outside a provider (shell components in isolation). */
+/** The store's snapshot; "loading" while no workspace is open (account unknown or signed out). */
+export function useWorkspaceSnapshot(): WorkspaceSnapshot {
+  return useOptionalWorkspaceSnapshot();
+}
+
+/** Like `useWorkspaceSnapshot`, but also reads "loading" outside a provider (shell components in isolation). */
 export function useOptionalWorkspaceSnapshot(): WorkspaceSnapshot {
   const store = useContext(WorkspaceContext);
   return useSyncExternalStore(

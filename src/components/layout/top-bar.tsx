@@ -1,3 +1,4 @@
+import { AccountMenu } from "@/components/account/account-menu";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { CurrentSection } from "./current-section";
 import { DemoIndicator } from "./demo-indicator";
@@ -18,6 +19,7 @@ export function TopBar() {
       <div className="ml-auto flex items-center gap-2">
         <DemoIndicator />
         <ThemeToggle />
+        <AccountMenu />
       </div>
     </header>
   );

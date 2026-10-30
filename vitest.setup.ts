@@ -1,6 +1,6 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
-import { afterEach } from "vitest";
+import { afterEach, vi } from "vitest";
 
 afterEach(() => {
   cleanup();
@@ -33,3 +33,9 @@ window.matchMedia ??= (query: string) =>
     removeListener() {},
     dispatchEvent: () => false,
   }) as MediaQueryList;
+
+// Server actions need a Next.js server; component tests replace them with stubs.
+vi.mock("@/lib/auth/actions", () => ({
+  signInWithGoogle: vi.fn(async () => {}),
+  signOutOfAccount: vi.fn(async () => {}),
+}));

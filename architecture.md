@@ -15,7 +15,9 @@
 
 ## 1. Architecture overview
 
-Updater's MVP is a **single Next.js application that runs entirely in the user's browser** for data handling. Pages are rendered by Next.js. All workspace data (profile, sources, evidence, review items, portfolio, resumes) lives in a versioned document in browser storage. There is no backend database, no authentication, no external API call, and no AI provider in the MVP. This is deliberate (see D-003 and D-004 in §17). It keeps the app usable without credentials and makes every displayed integration state truthful.
+Updater's MVP is a **single Next.js application that runs entirely in the user's browser** for data handling. Pages are rendered by Next.js. All workspace data (profile, sources, evidence, review items, portfolio, resumes) lives in a versioned document in browser storage. There is no backend database, no external API call, and no AI provider in the MVP. This is deliberate (see D-003 and D-004 in §17). It keeps the app usable without credentials and makes every displayed integration state truthful.
+
+**Optional Google sign-in [Implemented] (T10.5, D-029, D-030).** When `AUTH_SECRET`, `AUTH_GOOGLE_ID`, and `AUTH_GOOGLE_SECRET` are set, Auth.js handles Google sign-in, `src/proxy.ts` requires a session on every request, and the browser opens only the workspace stored under the signed-in account's own `localStorage` key. Without those variables the app runs in local mode, exactly as before. Workspace data still never reaches the server (§10, §11).
 
 Principal components:
 
@@ -29,9 +31,10 @@ Principal components:
 | Validation (`src/lib/validation`) | Runtime schemas for persisted, imported, and user-entered data | [Implemented] |
 | Storage adapter (`src/lib/data`) | Load, validate, migrate, and save the workspace document | [Implemented] |
 | Provider registry (`src/lib/providers`) | Source provider definitions: Manual entries, Demo workspace, plus Planned descriptors | [Implemented] (descriptors only; no provider performs network I/O) |
-| Route handlers / server APIs | Server-side ingestion, OAuth callbacks, persistence | [Future] |
+| Authentication (`src/auth.ts`, `src/proxy.ts`, `src/lib/auth`, `src/components/account`) | Optional Google sign-in, per-request sign-in gate, account status, account-scoped workspace keys | [Implemented] (§10) |
+| Route handlers / server APIs | `/api/auth/*` (Auth.js) and `/api/account` [Implemented]; server-side ingestion and persistence | [Future] beyond auth |
 | GitHub and blog providers | Real ingestion | [Future] |
-| Durable database, accounts | Multi-device persistence | [Future] |
+| Durable database | Multi-device persistence | [Future] |
 | AI drafting provider | Optional evidence-grounded wording drafts | [Future] |
 | Portfolio publisher | Real public deployment | [Future] |
 
@@ -100,7 +103,7 @@ Exact versions are pinned in `package.json` and `package-lock.json`. Those files
 | Validation | `src/lib/validation` | Zod schemas for persisted data, imports, and form input. URL and text helpers. The `Result`/`AppError` types (`result.ts`), `validate()` and `toFieldErrors()` (`field-errors.ts`), `safeExternalUrl()` (`url.ts`). | Depend on UI |
 | Persistence | `src/lib/data` | `WorkspaceStorage` adapter: load, validate, migrate, save. Demo fixtures. | Store secrets |
 | Source-provider adapters | `src/lib/providers` | Provider definitions, capability metadata, and (for real providers) fetch and normalize | Write to storage directly. Providers return data, and the store records it. |
-| Authentication and authorization | none yet | [Future] server-side session and ownership checks (§10) | |
+| Authentication and authorization | `src/auth.ts` (Auth.js setup, server-only), `src/proxy.ts` (gate), `src/lib/auth` (pure config, access rules, account schema), `src/app/api/{auth,account}`, `src/components/account` | Decide who may open the app and which workspace scope the browser uses (§10) | Read or write workspace data on the server; decide access in components |
 | AI-provider adapters | none yet | [Future] optional `DraftingProvider` (§12) | |
 | Publishing adapters | none yet | [Future] `Publisher` (§13) | |
 | Utilities | `src/lib/utils` | IDs, dates, class names (`cn`), small helpers | Accumulate unrelated logic |
@@ -179,6 +182,25 @@ src/
 │   └── utils/                 # cn.ts, ids.ts, dates.ts
 ├── test/                      # fixtures.ts, render.tsx (test helpers)
 └── types/domain.ts            # types inferred from the schemas
+```
+
+**Added with Google sign-in (T10.5):**
+
+```
+src/
+├── auth.ts                    # Auth.js setup (Google, JWT sessions), server-only
+├── proxy.ts                   # sign-in gate on every request (decideAccess)
+├── app/
+│   ├── layout.tsx             # root layout: theme script + providers only
+│   ├── (workspace)/           # route group: layout.tsx renders AppShell; all six pages, onboarding, error.tsx
+│   ├── sign-in/page.tsx       # outside the shell; request-time part behind Suspense (◐)
+│   ├── api/auth/[...nextauth]/route.ts   # Auth.js endpoints (404 in local mode)
+│   ├── api/account/route.ts   # account status for the browser, no-store
+│   └── not-found.tsx          # renders its own AppShell (unmatched URLs are outside the group)
+├── components/account/        # account-provider, account-menu (top bar), account-required, use-sign-out,
+│                              # google-sign-in-button
+├── components/settings/account-settings.tsx   # Settings → Account, move a pre-sign-in workspace
+└── lib/auth/                  # config.ts, access.ts, account.ts, errors.ts (pure, tested); actions.ts (server actions)
 ```
 
 ### 4.1 Cache Components and preserved routes [Implemented]
@@ -492,19 +514,23 @@ MVP providers: `manual` (available, local), `demo` (fixtures), and `github` and 
 
 ## 10. Authentication and security
 
-| Topic | MVP | Future |
+| Topic | Implemented | Future |
 | --- | --- | --- |
-| Authentication | None. Single local user, single browser. | Accounts through an established library or provider (for example Auth.js). No custom auth. |
-| Authorization | Not applicable (no server data) | Every server read and write checks the session user owns the resource |
-| OAuth | None | Authorization-code flow with PKCE and `state`, callback in a route handler, tokens stored server-side and encrypted at rest by the storage provider |
-| Sessions | None | HTTP-only, `Secure`, `SameSite=Lax` cookies from the auth library |
-| Server-only credentials | None needed | Plain env vars (`GITHUB_CLIENT_SECRET`, `AUTH_SECRET`), never `NEXT_PUBLIC_*` |
-| Environment variables | None required (`.env.example` documents reserved names) | Validated at startup with a schema |
-| Input validation | Zod for forms, imports, and persisted data | Same schemas re-used server-side |
+| Authentication | Optional Google sign-in through Auth.js v5 (`next-auth`), JWT session strategy, no user database (D-029). The first sign-in creates the account; there is no separate sign-up. Off unless all of `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` are set (`readAuthConfig`); partly set → `incomplete`, which blocks the app. | More providers, or a database adapter once server persistence exists (T10.4) |
+| Account identity | `google:<sub>` from `account.providerAccountId`, stored in the session token as `accountId` and exposed as `session.accountId`. Auth.js's own `user.id` is random per sign-in without an adapter, so it isn't used. | Database user ids |
+| Authorization | `src/proxy.ts` runs `decideAccess` on every request except build assets: signed-out page requests redirect to `/sign-in?callbackUrl=…`, API requests get 401. Public: `/sign-in`, `/api/auth/*`, `/api/account`. There is no server-held workspace data to authorize yet. | Every server read and write checks the session user owns the resource (T10.4) |
+| Workspace scoping | `/api/account` reports `local`, `unavailable`, `signed_out`, or `signed_in` with `{ id, name, email }` (validated by `accountStateSchema` in the browser). `WorkspaceProvider` creates a store only for `local` or `signed_in`, using `workspaceStorageKeys(scope)`; signed out, unknown, or failed → no store, and `WorkspaceGate` explains why (D-030). The account is re-checked when the tab becomes visible. | Server-side storage per account |
+| OAuth | Google authorization-code flow run by Auth.js: PKCE and `state` checked on the callback (`/api/auth/callback/google`), CSRF token on sign-in/sign-out. No Google access or refresh token is kept. | GitHub OAuth (T10.2) with server-side tokens |
+| Sessions | Encrypted JWT in an HTTP-only, `SameSite=Lax` cookie (`Secure` on HTTPS) managed by Auth.js. The avatar URL is dropped from the token. Sign-out clears the cookie, then the browser loads `/sign-in` with a full navigation so no workspace stays in memory. | |
+| Server-only credentials | `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` as plain env vars, read only in `src/auth.ts`, never `NEXT_PUBLIC_*` | `GITHUB_CLIENT_SECRET` |
+| Environment variables | None required. Sign-in variables are read at server start (restart after changes); the sign-in page lists missing names only in development. | Validated at startup with a schema |
+| Input validation | Zod for forms, imports, persisted data, and the `/api/account` response. `safeCallbackPath` accepts only same-site paths after sign-in. | Same schemas re-used server-side |
 | External URLs | `safeExternalUrl()`: parse with `URL` and allow only `http:`/`https:`. Rendered with `rel="noopener noreferrer"`. | Server-side fetchers add allow-lists and block private address ranges (SSRF) |
-| Untrusted source text | Rendered as React text nodes only. No `dangerouslySetInnerHTML` except the static theme bootstrap script. Markdown is not rendered. | If rich text is ever rendered, use a vetted sanitizer |
-| Deletion and disconnection | Remove demo data, delete items, reset workspace (with confirmation), JSON export | Server-side deletion, including provider token revocation |
-| Cryptography | None. No homemade cryptography. | Platform and library primitives only |
+| Untrusted source text | Rendered as React text nodes only. No `dangerouslySetInnerHTML` except the static theme bootstrap script. Markdown is not rendered. Auth.js error codes map to fixed messages. | If rich text is ever rendered, use a vetted sanitizer |
+| Deletion and disconnection | Remove demo data, delete items, reset workspace (with confirmation), JSON export. Reset deletes only the current scope's keys. | Server-side deletion, including provider token revocation |
+| Cryptography | None of our own. Session encryption is Auth.js's. | Platform and library primitives only |
+
+**Limitation (recorded, not hidden).** Scoping is enforced by the app, not by the browser: anyone with access to the browser profile can still read every account's stored workspace with developer tools, and a workspace doesn't follow its account to another device. Both end with server persistence (T10.4).
 
 This architecture claims no security property beyond what the code implements. Browser storage is readable by anyone with access to the browser profile, and the privacy text says so.
 
@@ -513,14 +539,15 @@ This architecture claims no security property beyond what the code implements. B
 | Question | Answer |
 | --- | --- |
 | What is stored | `WorkspaceDocumentV1` (§5.12) and the theme preference |
-| Where | `localStorage` keys `updater:workspace:v1` and `updater:theme` |
+| Where | `localStorage`: `updater:workspace:v1` in local mode, `updater:workspace:v1:account:<encoded account id>` per signed-in account (D-030), and `updater:theme` |
 | Persists across reloads | Everything in the workspace document, plus the theme |
 | Temporary | Unsaved form input, open dialogs, filters, and toasts (in-memory React state) |
 | Never stored | Tokens, API keys, passwords, or anything secret |
 | Save model | Saves after each successful action (localStorage is synchronous, so there is no `saving` state). The store exposes `save: 'idle' | 'saved' | 'error'` with `savedAt` or `error`, and refuses any result that fails `workspaceSchema` (D-020). If storage is blocked at load, the app works in memory for the visit and the save status says so. Another tab's save triggers a reload of the stored workspace. |
-| Load model | Read → JSON parse → Zod validate → migrate by `schemaVersion` → hydrate. On failure the raw value is preserved under `updater:workspace:recovery`, and the user is offered export or reset. |
+| Load model | Read → JSON parse → Zod validate → migrate by `schemaVersion` → hydrate. On failure the raw value is preserved under `updater:workspace:recovery` (with the same `:account:<id>` suffix when signed in), and the user is offered export or reset. |
+| Pre-sign-in data | A local-mode workspace is never opened for an account automatically. Settings → Account offers to move it into the signed-in account (replace, then delete the unscoped keys). |
 | SSR | Workspace UI renders client-side after load (`WorkspaceGate`), with a skeleton until hydration. The server never sees workspace data. `/resumes/[resumeId]` reads its param with `useParams` inside `<Suspense>` (D-028). |
-| Multi-user durability (future) | Server database, accounts, and per-user authorization. A `ServerWorkspaceStorage` adapter implements the same `WorkspaceStorage` interface, with a one-time import from local data. |
+| Multi-user durability (future) | Server database and per-user authorization (accounts exist, §10). A `ServerWorkspaceStorage` adapter implements the same `WorkspaceStorage` interface, with a one-time import from local data. |
 
 ## 12. AI and resume generation
 
@@ -629,3 +656,5 @@ Full context and status are kept in [`memory.md`](./memory.md#decision-log), usi
 | D-026 | Explicit Save per editor section | Save on blur | Clear unsaved vs saved states | `beforeunload` warning while dirty |
 | D-027 | Keyword overlap plus role hints for suggestions | Literal overlap only | Role titles rarely share words with technologies | Editorial word list (memory.md open question 6) |
 | D-028 | Client-side `useParams` in Suspense for resume ids | `generateStaticParams` | Ids exist only in the browser | Generic page `h1` |
+| D-029 | Optional Google sign-in with Auth.js v5 (`next-auth@5.0.0-beta.32`, pinned), JWT sessions, no database; on only when all sign-in variables are set, blocked when partly set | Auth.js v4 (stable); Better Auth; homemade OAuth | Established library (rules.md §7.3.9), App Router-native API (`auth()`, proxy wrapper, server actions), Next 16 peer support; v5 is published as beta | No user table; account id is `google:<sub>`; beta upgrades need care |
+| D-030 | Workspace scoped per account in the browser (`updater:workspace:v1:account:<id>`), chosen from the server's `/api/account` answer; no store while the account is unknown or signed out | Server-side workspace storage now (T10.4) | Delivers per-user portfolios and resumes without a database decision; keeps pages static | Not cross-device; readable via devtools on a shared browser profile; T10.4 removes both |
