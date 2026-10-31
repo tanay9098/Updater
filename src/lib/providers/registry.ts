@@ -78,7 +78,7 @@ export const GITHUB_PROVIDER: ProviderDescriptor = {
   permissions: {
     reads: ["Public repository data for the username you enter, through GitHub's public API. No sign-in to GitHub."],
     never: [
-      "Never writes to GitHub.",
+      "The import never writes to GitHub. (Publishing your portfolio is separate: it writes only to the repository you choose on the Portfolio page.)",
       "Never reads private repositories.",
       "Never sends your workspace to GitHub: only the username is sent, by Updater's server.",
     ],

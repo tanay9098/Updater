@@ -77,7 +77,7 @@ export function OnboardingFlow() {
             ))}
           </ul>
           <p className="text-body text-foreground-secondary">
-            In this version, everything is stored only in this browser. Nothing is sent to a server.
+            Your workspace is stored only in this browser. Something leaves it only when you ask: an import, or publishing your portfolio to your own GitHub repository.
           </p>
           <div>
             <Button variant="primary" onClick={() => setStep(2)}>

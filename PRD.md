@@ -7,7 +7,7 @@
 | Product | Updater — developer portfolio auto-updater |
 | Purpose | Defines what Updater must do, for whom, and how the MVP is judged usable. It is the product source of truth for humans and coding agents. |
 | Version | 0.1.0 (initial specification) |
-| Current phase | Phase E — next increment: GitHub public repository import (T10.1), see [`tracker.md`](./tracker.md) |
+| Current phase | Phase E — GitHub public repository import (T10.1) and publishing to the developer's own GitHub Pages site (T10.9), see [`tracker.md`](./tracker.md) |
 | Last updated | 2026-10-31 |
 | Status | Draft, pending owner review |
 
@@ -158,7 +158,12 @@ Each journey lists the steps, the expected system behavior, and the observable o
 3. **Review source-backed claims.** Each project's claims show their origin badge (Source, User-supplied, Edited from source) and an evidence popover with source links.
 4. **Preview.** The preview pane renders the portfolio as a visitor would see it, labeled "Local preview: not published."
 5. **Save the draft.** Edits save to the local draft. The editor shows "Saved locally at {time}" or a persistence error, never a false success.
-6. **Publish.** The Publish control states that no publisher is configured in this version and is disabled. Publication state stays "Not published" (FR-PUB-01).
+6. **Publish (T10.9).** Publishing puts the saved draft on the developer's own GitHub Pages site, `https://<username>.github.io/`, built from a repository in their GitHub account that Updater writes to only when they publish:
+   1. **Connect GitHub** (once per browser): GitHub asks the developer to authorize Updater's GitHub App. Updater learns which GitHub account it is and keeps no GitHub token.
+   2. **Set up the site** (once): the Portfolio page shows the steps until they're done: create a public repository named `<username>.github.io` with a README, and install Updater's GitHub App on that repository only.
+   3. **Publish:** a confirmation states what becomes public (the preview's content, never the email address or demo data), the address, and that Updater commits only to the `gh-pages` branch of that repository. If the repository already has a `gh-pages` branch Updater didn't write, or GitHub Pages serves something else, the dialog asks for that specific change before anything is written.
+   4. **Wait for GitHub:** the state is "Publishing" while GitHub Pages builds the site. It becomes "Published", with the live address, only after GitHub reports that build. A failed build is shown, and a previously published version stays live and recorded.
+   5. On a server without a GitHub App configured, the Publish control is disabled and says publishing isn't set up on this server.
 
 ### Journey E — Creating a resume
 
@@ -240,8 +245,12 @@ Priorities: **P0** is required for the MVP, **P1** is expected in the MVP if fea
 
 | ID | Priority | Requirement | Acceptance criteria |
 | --- | --- | --- | --- |
-| FR-PUB-01 | P0 | Publishing is a separate, explicit action, shown as unavailable in the MVP. | The Publish control is disabled with an explanation. Publication state is "Not published". No UI claims a public URL. |
-| FR-PUB-02 | P2 | A future publisher reports status, URL, failures, and rollback. | Defined in `architecture.md` §13 and implemented in Phase 10. |
+| FR-PUB-01 | P0 | Publishing is a separate, explicit action. Approval never publishes. | Only the Publish confirmation starts a publish. When the server has no publisher configured, the Publish control is disabled with an explanation and the state stays "Not published". No UI claims a public URL that a publisher didn't confirm. |
+| FR-PUB-02 | P2 | The publisher reports status, URL, and failures truthfully (T10.9). | "Publishing" while GitHub Pages builds; "Published" with the address only after GitHub reports the build of the commit Updater wrote; "Publish failed" with GitHub's reason otherwise, keeping the previously published address. Rollback is not built: the developer can revert in their own repository (§12). |
+| FR-PUB-03 | P2 | The published site belongs to the developer (T10.9, D-037). | The site is a static site in the developer's own `<username>.github.io` repository, on its `gh-pages` branch, with `portfolio.json` holding the same content as data. Updater's GitHub App is installed on that one repository only; disconnecting Updater or uninstalling the app leaves the site online. |
+| FR-PUB-04 | P2 | Publishing changes nothing the developer didn't agree to. | Updater writes only to `gh-pages` of that repository, never force-pushes, and refuses (asking for confirmation) to replace a `gh-pages` branch it didn't create or to change what GitHub Pages serves. If GitHub won't let the app turn Pages on, the page says how to do it in the repository settings. |
+| FR-PUB-05 | P2 | Only what the preview shows is published. | The public copy contains the profile (name, headline, location, introduction, links), visible skills, visible projects with their achievements and links, and other achievements. Never the email address, evidence, review state, or demo data. The server validates the copy again. |
+| FR-PUB-06 | P2 | The Portfolio page says when the draft differs from the published site. | "Changes since last publish" appears when the saved draft's public copy differs from the copy GitHub confirmed. |
 
 ### 8.9 Resume creation and tailoring
 
@@ -276,7 +285,7 @@ Priorities: **P0** is required for the MVP, **P1** is expected in the MVP if fea
 | --- | --- | --- | --- |
 | FR-SET-01 | P0 | Settings exposes profile basics, theme, integration status summary, privacy information, and local data management. | All sections are present and functional. |
 | FR-SET-02 | P0 | Destructive actions require confirmation. | Reset workspace, remove demo data, and delete resume use a confirmation dialog naming what is lost. |
-| FR-SET-03 | P0 | Privacy information accurately describes the MVP's data handling. | The text states that data stays in this browser, nothing is sent to Updater servers, and there are no analytics. |
+| FR-SET-03 | P0 | Privacy information accurately describes the MVP's data handling. | The text states that the workspace stays in this browser, what leaves it and when (a GitHub import's username; a publish's public copy, sent to the developer's own repository), that no GitHub token is stored, and that there are no analytics. |
 
 ### 8.12a Accounts and sign-in (compulsory, post-MVP — T10.5, D-031)
 
@@ -353,6 +362,7 @@ The MVP includes:
 - FR-RES-05: suggestions use keyword overlap plus a small list of role hints (architecture.md §12).
 - FR-SYNC-02/03: no provider synchronized in the Phase C MVP, so every source stated "Not synchronized" with the reason. Phase E (T10.1): the GitHub import records each check's time and outcome (succeeded, failed with reason, rate-limited with the time it can resume) and offers "Try again". It reads at most 3 pages (300 repositories) per check and never syncs in the background.
 - FR-SRC-05 (Phase E): the GitHub source can be removed with the same confirmation and keep-or-remove choice as the demo workspace. A public import holds no authorization, so there is nothing to revoke on GitHub.
+- FR-PUB-01–06 (Phase E, T10.9, owner request 2026-10-31): publishing to the developer's own GitHub Pages user site was added to scope. Only `<username>.github.io` repositories are supported (owner choice); project sites at `<username>.github.io/<repository>` and other hosts are not. Publishing needs a GitHub App configured on the server (README); without one the app works as before.
 
 ## 12. Future scope
 
@@ -365,7 +375,7 @@ These remain future work until genuinely implemented and verified:
 - User accounts beyond sign-in: server-held, per-account storage that follows the account across devices. (Compulsory Google sign-in with a separate workspace per account in the browser is implemented: T10.5, architecture.md §10.)
 - AI-assisted summarization and drafting through a replaceable provider. It is optional and evidence-grounded.
 - Automated resume generation beyond selection-based tailoring.
-- Real public portfolio deployment, with status, URL, and rollback.
+- Publishing beyond T10.9: rollback from Updater, unpublishing from Updater, project-site repositories (`<username>.github.io/<repository>`), custom domains set from Updater, and updating a portfolio site the developer already has. (Publishing the portfolio to the developer's own `<username>.github.io` GitHub Pages site is implemented: T10.9.)
 - Additional import/export formats (JSON Resume, generated PDF, Markdown).
 
 ## 13. Risks, dependencies, and assumptions
@@ -382,6 +392,8 @@ These remain future work until genuinely implemented and verified:
 | Browser storage limits and clearing | Data loss | JSON export, quota error reporting, documented limitation. |
 | Deployment limitations | Local-only data does not follow the user across devices | Documented. Durable storage is future scope. |
 | Cost and complexity of external services | Scope creep, paid dependencies | No paid service is required. New services need a decision-log entry in `memory.md`. |
+| Publishing depends on GitHub (T10.9) | GitHub outages, slow Pages builds, permission changes, or a GitHub plan that doesn't allow Pages on private repositories stop a publish | The state stays "Publishing" or "Publish failed" with GitHub's reason; the last confirmed site stays live. Pages needs a public repository on free plans, which the setup steps say. |
+| The developer's existing repository content (T10.9) | A publish could overwrite a site they already have | Updater writes only to `gh-pages`, never force-pushes, marks its own branch, and asks before replacing a branch it didn't write or switching what Pages serves. |
 
 Assumptions: users run a modern evergreen browser. Users accept local-only storage for the MVP. Demo fixtures use reserved `example.com` URLs so they cannot be mistaken for real accounts.
 

@@ -169,13 +169,14 @@ test.describe("Journey C: review queue", () => {
 });
 
 test.describe("Journey D: portfolio", () => {
-  test("edit, validate links, preview, and publish stays unavailable", async ({ page }) => {
+  test("edit, validate links, preview, and publish stays unavailable without a GitHub App on the server", async ({ page }) => {
     await onboardWithDemo(page);
     await page.getByRole("button", { name: /^Approve “Command-line tool/ }).click();
     await openPage(page, "/portfolio");
 
     await expect(page.getByRole("button", { name: "Publish" })).toBeDisabled();
-    await expect(page.getByText("Publishing isn't available in this version.").first()).toBeVisible();
+    // The test server has no GitHub App configured (T10.9); e2e/publishing.spec.ts covers publishing itself.
+    await expect(page.getByText("Publishing isn't set up on this server.", { exact: false }).first()).toBeVisible();
 
     const profile = page.getByRole("region", { name: "Profile" });
     await profile.getByRole("textbox", { name: "Introduction" }).fill("I build small, careful tools.");

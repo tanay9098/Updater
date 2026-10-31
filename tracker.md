@@ -1,6 +1,6 @@
 # Updater — Implementation Tracker
 
-Last updated: 2026-10-31 (Phase E: GitHub public repository import, T10.1) · Related: [`PRD.md`](./PRD.md) §15 (release readiness) · [`memory.md`](./memory.md) · [`rules.md`](./rules.md) §7.7
+Last updated: 2026-10-31 (Phase E: GitHub public repository import, T10.1; GitHub Pages publishing, T10.9) · Related: [`PRD.md`](./PRD.md) §15 (release readiness) · [`memory.md`](./memory.md) · [`rules.md`](./rules.md) §7.7
 
 **Status vocabulary:** `Todo` · `In Progress` · `Blocked` · `Done`.
 **Priorities:** `P0` required for the MVP · `P1` expected in the MVP if feasible · `P2` post-MVP.
@@ -16,7 +16,7 @@ The project owner reviews and approves each execution phase before the next one 
 | B — Foundation | Phase 2 (plus T8.2) | **Done. Approved by the owner (Phase C requested 2026-10-29).** |
 | C — Core functionality | Phases 3–8 | **Done. Approved by the owner (Phase D requested 2026-10-30).** |
 | D — Verification | Phase 9 | **Done. Approved by the owner (Phase E requested 2026-10-31).** Re-verified Phases A–C instead of assuming them; see memory.md change history. |
-| E — Next priorities | Phase 10 selection | **In Progress. Awaiting owner review.** Assessment done (T10.0); increment T10.1 implemented and verified except one live GitHub request (see T10.1). T10.5 was started early at the owner's explicit request (2026-10-30). |
+| E — Next priorities | Phase 10 selection | **In Progress. Awaiting owner review.** Assessment done (T10.0); increment T10.1 implemented and verified except one live GitHub request (see T10.1). T10.5 was started early at the owner's explicit request (2026-10-30). T10.9 (publishing to the developer's own GitHub Pages site) was implemented at the owner's request (2026-10-31), verified except a live publish (see T10.9). |
 
 ## Phase 1 — Repository and documentation bootstrap
 
@@ -151,10 +151,11 @@ These stay open until actually implemented and verified.
 | T10.6 | Scheduled synchronization / background jobs | P2 | Todo | T10.1, T10.4 | Recorded sync results. Backoff on failures. |
 | T10.7 | AI-assisted drafting (optional, server-side, evidence-grounded) | P2 | Todo | MVP | rules.md §7.6 enforced, including a post-check that rejects unsupported numbers. |
 | T10.8 | Blog integrations (RSS/Atom, DEV, Hashnode) | P2 | Todo | MVP | SSRF-safe fetching. Articles become evidence. |
-| T10.9 | Real portfolio publishing (Publisher adapter) | P2 | Todo | T10.4 | Status, URL, failure, and rollback reported truthfully. |
+| T10.9 | Real portfolio publishing: the developer's own `<username>.github.io` GitHub Pages site through Updater's GitHub App (D-037, D-038) | P2 | In Progress | T10.5 | Status, URL, and failure reported truthfully. Criteria T10.9-a to T10.9-j below. Dependency on T10.4 dropped: the link lives in an encrypted cookie and nothing else is stored on the server (D-038). Rollback moved to T10.13. *Verified 2026-10-31:* all criteria except a live publish (T10.9-j). *Remaining for Done:* the owner registers a GitHub App, sets the five `GITHUB_APP_*` variables on a deployment, and publishes once; this container's egress proxy blocks GitHub's write and installation endpoints. |
 | T10.10 | Additional export formats (JSON Resume, generated PDF) | P2 | Todo | Phase 7 | Output validated. No ATS claim without validation. |
 | T10.11 | GitHub: show repositories that disappeared upstream (deleted, renamed away, made private) on a check | P2 | Todo | T10.1 | A check lists imported repositories missing from the listing without deleting anything; the user decides. Tested. |
 | T10.12 | GitHub: protect the shared rate limit (per-account throttle or short server cache of listings) | P2 | Todo | T10.1 | One account can't exhaust the server's GitHub budget; the dialog states any wait truthfully. Tested. |
+| T10.13 | Publishing: rollback and unpublish from Updater; optional project-site repositories | P2 | Todo | T10.9 | Rollback re-publishes a previous commit as a new commit; unpublish turns Pages off or empties `gh-pages` after a confirmation that states what goes offline. Status truthful. Tested. |
 
 ### Phase E increment: T10.1 acceptance criteria
 
@@ -173,8 +174,25 @@ Why T10.1: the MVP was complete and green, so no repair came first. T10.1 delive
 | T10.1-i | The route requires a session (401 otherwise), sends `no-store`, and stores nothing on the server. | Verified: E2E against `next start` |
 | T10.1-j | One real import from `api.github.com` succeeds end to end. | **Not verified (blocked):** in this container the route reached GitHub through the egress proxy, which answered 403 for `/users/{name}/repos` ("sessions are bound to their configured repositories"); the route reported `provider_error` (HTTP 502) truthfully. Normalization was checked against a real recorded repository response instead. |
 
+### T10.9 acceptance criteria (GitHub Pages publishing)
+
+| ID | Criterion | Verification |
+| --- | --- | --- |
+| T10.9-a | Without all five `GITHUB_APP_*` variables, the Portfolio page says "Publishing isn't set up on this server" and Publish is disabled with that description; the routes answer `unavailable`/503 and contact nothing. Everything else works as before. | Verified: unit test (config, route answers), component test, E2E against `next start` |
+| T10.9-b | "Connect GitHub" runs GitHub App user authorization with `state` and S256 PKCE, bound to the signed-in account; the callback learns the GitHub account, revokes the one-time token, and stores only `{accountId, githubUserId, login}` in an encrypted HTTP-only cookie. Cancelled, expired, mismatched, or unconfirmed callbacks link nothing and say so. | Verified: unit tests (authorization URL, code exchange, revoke, cookie round trip, other account, tampering, salts), E2E (signed-out 401s, notice and dismiss) |
+| T10.9-c | The Portfolio page shows the setup steps until the app is installed on `<login>.github.io` and the repository is reachable; the installation and repository must belong to the verified GitHub account id. | Verified: unit tests (not installed, other account, repository missing), component test |
+| T10.9-d | Publish needs a confirmation that states what becomes public, the address, and that only `gh-pages` of that repository changes. The public copy never contains the email address, demo data, hidden items, ids, or evidence, and the server validates it again (≤ 1 MB, same-origin only). | Verified: unit tests (snapshot, schemas, invalid bodies), component test, E2E (403 cross-origin, dialog axe scan) |
+| T10.9-e | The site is static HTML with escaped text, re-checked links, no scripts, and a restrictive CSP meta; `portfolio.json` holds the same content. | Verified: unit tests (renderer, injection attempts, unsafe links) |
+| T10.9-f | Only `gh-pages` of that repository is written, without force; a branch without Updater's marker is replaced only after confirmation; switching what Pages serves needs confirmation; both refusals happen before any write. A concurrent branch change is reported, not overwritten. | Verified: unit tests against a fake GitHub API |
+| T10.9-g | Installation tokens are minted per request for that one repository with Contents/Pages write and Metadata read; the app JWT is RS256, ≤ 10 minutes; no token is stored or sent to the browser. | Verified: unit tests (JWT verified with the public key, token request body, no token in route answers) |
+| T10.9-h | "Publishing" until GitHub Pages reports the build of the commit Updater wrote; "Published" with GitHub's address and time only then; a failed or superseded build is recorded with the reason and keeps the previous live copy; waiting resumes after a reload. "Changes since last publish" appears when the draft differs. | Verified: state machine table test, unit tests, component tests, E2E (stubbed journey, reload keeps "Published", Overview shows "Live at") |
+| T10.9-i | If GitHub won't let the app turn Pages on, the publish still reports the commit and the page explains the setting to change. Rate limits and network failures show readable errors. | Verified: unit tests |
+| T10.9-j | One live publish to a real `<login>.github.io` repository, with the site reachable at its address. | **Not verified.** Needs a registered GitHub App and a deployment with outbound access to `api.github.com` and `github.com` (owner). |
+
 ## Next recommended task
 
 **Owner review of Phase E**, including **T10.1-j**: run `npm run dev` (or `npm run start`) on a machine with normal internet access, import a few of your own repositories from Sources → GitHub, and approve one. Then T10.1 can be marked Done. The T10.5 follow-up (one real Google sign-in) is still open as well.
+
+Also **T10.9-j**: register a GitHub App (README → "Publishing to GitHub Pages"), set the five `GITHUB_APP_*` variables on your deployment, then on the Portfolio page connect GitHub, create `<username>.github.io`, install the app on it, and publish once. Then T10.9 can be marked Done.
 
 After that: **T10.3** (merged pull requests and contributions as evidence) builds directly on T10.1's route and contract and needs no new credentials; or **T10.4** (server persistence) once the database decision in memory.md open question 7 is made.

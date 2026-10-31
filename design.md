@@ -219,7 +219,7 @@ The page header reads "Overview" with the description "Where your portfolio stan
    5. create a resume
 
    It has a single primary button.
-2. **Portfolio status.** Profile checklist (name, headline, introduction, at least one link, at least one visible project), counts of approved claims and visible projects, and publication state: "Not published. Publishing isn't available in this version".
+2. **Portfolio status.** Profile checklist (name, headline, introduction, at least one link, at least one visible project), counts of approved claims and visible projects, and publication state: the publication badge (§9) with "Publish from the Portfolio page" before the first publish, "Live at {address}" once GitHub Pages confirmed a build, or "Last published version: {address}" while a later publish is in progress or failed (T10.9).
 3. **Sources.** Compact list of providers with status badges and item counts.
 4. **Pending review.** Up to 5 items with title, source, and badge. "Open Review Queue" link.
 5. **Recent evidence.** Up to 5 most recently discovered evidence items, with date and source.
@@ -300,6 +300,8 @@ Each review item is a bordered row that expands to a detail view:
 | `dismissed` | Dismissed | neutral |
 | (derived) published | Published | success, with a globe icon. Only when a real publisher confirmed it, so never in the MVP. |
 
+Publication badge (T10.9), always with a globe icon: **Not published** (neutral), **Publishing** (info, while GitHub Pages builds the commit Updater wrote), **Published** (success, only after GitHub reported that build), **Publish failed** (error, with GitHub's reason shown next to it; a previously published address stays shown).
+
 | Verification | Badge |
 | --- | --- |
 | `source_reported` | From source |
@@ -327,6 +329,20 @@ Interactions:
 ## 11. Portfolio editor
 
 The header reads "Portfolio", with a draft state line: "Draft · Saved locally {time} · Not published". The Publish button is disabled, with helper text: "Publishing isn't available in this version. Use the preview to check your portfolio."
+
+*As implemented (T10.9):* the draft line is part of a **publish bar** (a section above the editor, `h2` "Draft and publication" for screen readers):
+
+- **Draft line:** "Draft · Saved locally {time} · {publication badge}", plus "Changes since last publish" (warning text) when the saved draft differs from the confirmed site, and "Live at {address} · published {time}" once published.
+- **Helper text** (the Publish button's accessible description) reflects the server's answer: "Checking your GitHub Pages site…"; "Publishing isn't set up on this server. Use the preview to check your portfolio." (Publish disabled); "Publish to your own GitHub Pages site. Connect your GitHub account to start." with a primary **Connect GitHub** link-button; "Connected as {login}. Finish the steps below to publish."; or "Publishes to {repository} (gh-pages branch), shown at {address}." with a primary **Publish** button. A private repository adds that Pages needs a paid GitHub plan for it.
+- **Setup steps** (when the app isn't installed or the repository isn't reachable): an ordered list: create a public repository named `{login}.github.io` with a README (link to GitHub's new-repository page), install Updater's GitHub App on that repository only (link), come back and choose **Check again**. Plus **Disconnect GitHub** (confirmation: the site stays online; uninstall the app on GitHub to remove access).
+- **Publish dialog:** title "Publish your portfolio?", description "Anyone with the address can see it: {address}". It lists what becomes public (name, headline, location, introduction, counts of links, skills, projects, and other achievements), says the email address isn't published, and that Updater commits to the `gh-pages` branch and changes nothing else. Info alert when demo items are left out; warning when only the name would be on the page; warning when GitHub Pages currently serves another source (button "Switch and publish"). If the server reports a `gh-pages` branch Updater didn't create, a warning "Replace the gh-pages branch?" appears and the button becomes "Replace and publish". Other failures show an error alert inside the dialog; nothing is recorded.
+- **While publishing:** an info alert with a spinner, "GitHub Pages is building your site. This usually takes a minute." After 3 minutes without an answer: "GitHub Pages hasn't reported the build yet." with **Check status**. A toast "Committed to GitHub" follows the server's answer, and "Your portfolio is published" (with the address) follows GitHub's confirmation. If GitHub refused to turn Pages on, a warning toast explains the repository setting to change.
+- **Failed:** an error alert "The last publish didn't go online" with GitHub's message, adding "Your previously published version is still live." when there is one.
+- **Callback notice:** after "Connect GitHub", `/portfolio?github={outcome}` shows a dismissible alert: "GitHub connected" (success), or "GitHub wasn't connected" (cancelled, expired or mismatched request, or GitHub didn't confirm).
+
+### 11.1 Published site (T10.9)
+
+The site Updater writes to the developer's repository is static HTML with one stylesheet and no scripts. It follows the preview's order: name (`h1`), headline, location, introduction (paragraphs), links, then **Skills** (chips), **Projects** (name, summary, technologies joined with " · ", achievements as a bulleted list, links), and **Other achievements**. One centered column (max 46 rem, 16 px gutters), the app's light tokens by default and its dark tokens when the visitor's system prefers dark, system fonts, visible focus outlines, underlined links. A `404.html` page links back to the portfolio. Demo data and the email address never appear.
 
 Editor sections (each an `h2` with a form):
 

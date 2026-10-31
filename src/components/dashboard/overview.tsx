@@ -14,6 +14,8 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { DemoBadge, PublicationBadge, ReviewStatusBadge, VerificationBadge } from "@/components/workspace/badges";
 import { useWorkspace, useWorkspaceSnapshot } from "@/components/workspace/workspace-provider";
 import { KIND_LABELS } from "@/components/review/labels";
+import { ExternalLink } from "@/components/workspace/external-link";
+import type { PublishingState } from "@/types/domain";
 
 /** Overview (design.md §8). Everything shown is derived from stored workspace records. */
 export function Overview() {
@@ -86,8 +88,8 @@ export function Overview() {
             <Count label="Skills" value={counts.skills} />
           </dl>
           <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border pt-4">
-            <PublicationBadge />
-            <span className="text-support text-muted">Publishing isn&apos;t available in this version.</span>
+            <PublicationBadge status={ws.portfolio.publishing.status} />
+            <PublicationNote publishing={ws.portfolio.publishing} />
           </div>
         </Panel>
 
@@ -208,4 +210,24 @@ function Count({ label, value }: { label: string; value: number }) {
       <dd className="text-heading font-semibold">{value}</dd>
     </div>
   );
+}
+
+/** Where the portfolio is published, only as GitHub Pages confirmed it (rules.md §7.1.9). */
+function PublicationNote({ publishing }: { publishing: PublishingState }) {
+  if (publishing.publisherId === null) {
+    return (
+      <span className="text-support text-muted">
+        Publish from the <Link href="/portfolio" className="text-link underline underline-offset-4">Portfolio</Link> page.
+      </span>
+    );
+  }
+  if (publishing.live) {
+    return (
+      <span className="text-support text-muted">
+        {publishing.status === "published" ? "Live at" : "Last published version:"}{" "}
+        <ExternalLink href={publishing.live.url}>{publishing.live.url}</ExternalLink>
+      </span>
+    );
+  }
+  return <span className="text-support text-muted">GitHub Pages hasn&apos;t confirmed a published version yet.</span>;
 }
