@@ -85,7 +85,7 @@ export function SettingsView() {
         <ul className="flex list-disc flex-col gap-1.5 pl-5 text-body text-foreground-secondary">
           <li>
             Your workspace is stored in this browser&apos;s local storage, under your account. It isn&apos;t sent to
-            Updater&apos;s server or any other service. There are no analytics or tracking.
+            Updater&apos;s server or any other service, except as described below. There are no analytics or tracking.
           </li>
           <li>
             Sign-in uses Google. Updater keeps your Google account ID, name, and email address only in an encrypted,
@@ -102,6 +102,12 @@ export function SettingsView() {
             Importing from GitHub sends only the username you enter to Updater&apos;s server, which reads that
             account&apos;s public repositories from GitHub&apos;s API and returns them to this browser. The server keeps
             nothing, and no GitHub sign-in or token is involved on your side.
+          </li>
+          <li>
+            Publishing sends the public copy of your saved portfolio (no email address, no demo data) through
+            Updater&apos;s server to the gh-pages branch of your own &lt;username&gt;.github.io repository, where anyone can
+            see it. Connecting GitHub keeps only your GitHub account ID and username in an encrypted, HTTP-only cookie in
+            this browser; no GitHub token is stored.
           </li>
           <li>Demo data is fictional and links only to example.com.</li>
         </ul>

@@ -1,7 +1,7 @@
 import { CircleCheck, Globe, PenLine, Sparkles, UserRound, Wand2 } from "lucide-react";
 import { StatusBadge } from "@/components/ui/status-badge";
 import type { StatusTone } from "@/components/ui/status";
-import type { ClaimOrigin, ReviewStatus, Verification, WordingOrigin } from "@/types/domain";
+import type { ClaimOrigin, PublishingStatus, ReviewStatus, Verification, WordingOrigin } from "@/types/domain";
 
 /** Violet "Demo data" label on every demo-derived surface (FR-SRC-03, design.md §16). */
 export function DemoBadge() {
@@ -89,7 +89,16 @@ export function WordingLabel({ wording }: { wording: WordingOrigin }) {
   );
 }
 
-/** Publication state. The MVP has no publisher, so this always reads "Not published". */
-export function PublicationBadge() {
-  return <StatusBadge tone="neutral" label="Not published" icon={Globe} />;
+const PUBLICATION: Record<PublishingStatus, { label: string; tone: StatusTone }> = {
+  not_published: { label: "Not published", tone: "neutral" },
+  publishing: { label: "Publishing", tone: "info" },
+  // Only after GitHub Pages confirmed the build (rules.md §7.1.9).
+  published: { label: "Published", tone: "success" },
+  failed: { label: "Publish failed", tone: "error" },
+};
+
+/** Publication state (design.md §9), from the workspace's publishing record. */
+export function PublicationBadge({ status }: { status: PublishingStatus }) {
+  const { label, tone } = PUBLICATION[status];
+  return <StatusBadge tone={tone} label={label} icon={Globe} />;
 }

@@ -1,8 +1,12 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }), usePathname: () => "/portfolio" }));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  usePathname: () => "/portfolio",
+  useSearchParams: () => new URLSearchParams(),
+}));
 vi.mock("next/link", () => ({
   default: ({ href, children, ...props }: React.ComponentProps<"a"> & { href: string }) => (
     <a href={href} {...props}>
@@ -13,6 +17,7 @@ vi.mock("next/link", () => ({
 
 import { approveReviewItem } from "@/features/review/transitions";
 import { demoWorkspace, must, T1 } from "@/test/fixtures";
+import { stubUpdaterRoutes } from "@/test/publishing";
 import { renderWithWorkspace, storedWorkspace } from "@/test/render";
 import { WorkspaceGate } from "@/components/workspace/workspace-gate";
 import { PortfolioEditor } from "./portfolio-editor";
@@ -33,13 +38,21 @@ function renderEditor(workspace = workspaceWithApprovedPullRequest()) {
 }
 
 describe("PortfolioEditor (T6.1–T6.6)", () => {
+  beforeEach(() => {
+    // This server has no GitHub App configured (T10.9).
+    stubUpdaterRoutes({ "GET /api/portfolio/site": { body: { state: "unavailable" } } });
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("separates draft, preview, and publication states; Publish is disabled with a reason", async () => {
     const user = userEvent.setup();
     renderEditor();
     expect(await screen.findByText("Not published")).toBeInTheDocument();
     const publish = screen.getByRole("button", { name: "Publish" });
     expect(publish).toBeDisabled();
-    expect(publish).toHaveAccessibleDescription(/Publishing isn't available in this version/);
+    await waitFor(() => expect(publish).toHaveAccessibleDescription(/Publishing isn't set up on this server/));
     await user.click(screen.getByRole("tab", { name: "Preview" }));
     expect(screen.getByRole("heading", { name: "Local preview: not published" })).toBeInTheDocument();
     expect(screen.getByText("Only you can see this. It shows your saved draft, not unsaved edits.")).toBeInTheDocument();

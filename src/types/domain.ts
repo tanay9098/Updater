@@ -55,6 +55,7 @@ export type PortfolioProject = z.infer<typeof portfolioProjectSchema>;
 export type PortfolioClaim = z.infer<typeof portfolioClaimSchema>;
 export type Skill = z.infer<typeof skillSchema>;
 export type PublishingState = z.infer<typeof publishingStateSchema>;
+export type PublishingStatus = PublishingState["status"];
 export type ResumeDraft = z.infer<typeof resumeDraftSchema>;
 export type ActivityEntry = z.infer<typeof activityEntrySchema>;
 

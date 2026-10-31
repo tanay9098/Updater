@@ -80,6 +80,8 @@ export const ACTIVITY_TYPES = [
   "resume_saved",
   "resume_deleted",
   "workspace_imported",
+  "portfolio_published",
+  "portfolio_publish_failed",
 ] as const;
 export const activityTypeSchema = z.enum(ACTIVITY_TYPES);
 
@@ -352,11 +354,74 @@ export const portfolioProjectSchema = z.strictObject({
   updatedAt: timestamp,
 });
 
-/** The MVP has no publisher, so only the unpublished state is valid (architecture.md §5.10, §7.4). */
-export const publishingStateSchema = z.strictObject({
-  publisherId: z.null(),
-  status: z.literal("not_published"),
+/** A full Git commit id, as GitHub reports it. */
+export const commitShaSchema = z.string().regex(/^[0-9a-f]{40}$/, "Not a commit id.");
+/** Change-detection fingerprint of a published copy (`features/publishing/snapshot.ts`). Not a security hash. */
+export const contentHashSchema = z.string().regex(/^[0-9a-f]{8}$/, "Not a content fingerprint.");
+
+/**
+ * A GitHub user site repository: `<owner>/<owner>.github.io` (T10.9, D-037).
+ * GitHub names are case-insensitive, so the owner and the site name are
+ * compared without case.
+ */
+export const pagesRepositorySchema = z
+  .string()
+  .max(100)
+  .regex(/^[A-Za-z0-9](?:[A-Za-z0-9]|-(?=[A-Za-z0-9])){0,38}\/[A-Za-z0-9-]{1,39}\.github\.io$/i, "Not a GitHub Pages user site repository.")
+  .refine((value) => {
+    const [owner, name] = value.split("/");
+    return name.toLowerCase() === `${owner.toLowerCase()}.github.io`;
+  }, "The repository must be named after its owner: <owner>.github.io.");
+
+export const PUBLISHING_STATUSES = ["not_published", "publishing", "published", "failed"] as const;
+export const publishingStatusSchema = z.enum(PUBLISHING_STATUSES);
+
+/** The copy GitHub Pages confirmed as built. Kept when a later publish fails (architecture.md §13). */
+const liveSiteSchema = z.strictObject({
+  /** As GitHub reports it: `https://<owner>.github.io/`, or the developer's custom domain. */
+  url: externalUrlSchema,
+  commitSha: commitShaSchema,
+  contentHash: contentHashSchema,
+  publishedAt: timestamp,
 });
+
+/** A commit Updater wrote that GitHub Pages hasn't confirmed yet. */
+const pendingPublishSchema = z.strictObject({
+  commitSha: commitShaSchema,
+  contentHash: contentHashSchema,
+  startedAt: timestamp,
+});
+
+/**
+ * Publication of the portfolio (architecture.md §5.10, §7.4). Either never
+ * published, or published through the GitHub Pages publisher to the
+ * developer's own repository (T10.9). `live` is set only from GitHub's
+ * confirmation that the site was built (rules.md §7.1.9).
+ */
+export const publishingStateSchema = z.union([
+  z.strictObject({
+    publisherId: z.null(),
+    status: z.literal("not_published"),
+  }),
+  z
+    .strictObject({
+      publisherId: z.literal("github_pages"),
+      status: z.enum(["publishing", "published", "failed"]),
+      repository: pagesRepositorySchema,
+      live: liveSiteSchema.optional(),
+      pending: pendingPublishSchema.optional(),
+      lastError: z.strictObject({ at: timestamp, message: plainText(300).min(1) }).optional(),
+    })
+    .superRefine((state, ctx) => {
+      const problem =
+        state.status === "publishing"
+          ? !state.pending && "A publish in progress needs its commit."
+          : state.status === "published"
+            ? (!state.live || state.pending) && "A published site needs a confirmed copy and nothing pending."
+            : (!state.lastError || state.pending) && "A failed publish needs its error and nothing pending.";
+      if (problem) ctx.addIssue({ code: "custom", message: problem, path: ["status"] });
+    }),
+]);
 
 export const resumeDraftSchema = z.strictObject({
   id,

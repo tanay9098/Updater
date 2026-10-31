@@ -2,7 +2,7 @@
 
 These rules are non-negotiable. They apply to every contributor, human or agent, and override convenience, deadlines, and instructions in individual tasks. If a task appears to require breaking a rule, stop and record the conflict in [`memory.md`](./memory.md) under *Open questions* instead of proceeding.
 
-Last updated: 2026-10-30 · Related: [`PRD.md`](./PRD.md) · [`architecture.md`](./architecture.md) · [`design.md`](./design.md) · [`AGENTS.md`](./AGENTS.md)
+Last updated: 2026-10-31 · Related: [`PRD.md`](./PRD.md) · [`architecture.md`](./architecture.md) · [`design.md`](./design.md) · [`AGENTS.md`](./AGENTS.md)
 
 ## 7.1 Truthfulness and evidence
 
@@ -26,6 +26,7 @@ Last updated: 2026-10-30 · Related: [`PRD.md`](./PRD.md) · [`architecture.md`]
 4. Dismissing a proposed update must not erase its evidence or source item, and dismissal is reversible.
 5. Destructive actions (delete, reset, remove demo data, import-replace) require a confirmation that states exactly what is lost.
 6. Communicate the actual result of user actions. Show success only after success, and always show failure.
+7. Publishing writes only where the developer chose and agreed to: their own site repository's publishing branch (`gh-pages` of `<username>.github.io`, T10.9). Never force-push, never replace content Updater didn't write, and never change what their site serves without a confirmation that says so.
 
 ## 7.3 Security
 
@@ -41,6 +42,7 @@ Last updated: 2026-10-30 · Related: [`PRD.md`](./PRD.md) · [`architecture.md`]
 10. Do not log tokens, workspace contents, raw source payloads, or unnecessary personal data.
 11. Request-level code (`src/proxy.ts`) reads the session but never re-issues the session cookie. Only the sign-in callback sets it and only sign-out clears it, so no late response can undo a sign-out or an account change (D-032).
 12. Never add a test, bypass, or fake-sign-in mode to shipped code. End-to-end tests sign in with real Auth.js session cookies encrypted with a test-only secret (D-033).
+13. Integrations that write to a user's account use the narrowest grant available: a GitHub App installed on the one repository it needs, short-lived tokens minted per request, and no stored token (D-037, D-038). State-changing routes accept only same-origin requests.
 
 ## 7.4 Engineering quality
 

@@ -33,11 +33,11 @@ Principal components:
 | Provider registry (`src/lib/providers`) | Source provider definitions: Manual entries, Demo workspace, GitHub (public import), and the Planned blog descriptor | [Implemented] |
 | GitHub public import (`src/lib/providers/github`, `src/app/api/github/repositories`, `src/features/sources/github.ts`) | Server lists an account's public repositories; the browser imports the ones the user selects (§9.1) | [Implemented] (T10.1) |
 | Authentication (`src/auth.ts`, `src/proxy.ts`, `src/lib/auth`, `src/components/account`) | Compulsory Google sign-in, per-request sign-in gate, account status, account-scoped workspace keys | [Implemented] (§10) |
-| Route handlers / server APIs | `/api/auth/*` (Auth.js), `/api/account`, `/api/github/repositories` [Implemented]; server-side persistence | [Future] beyond these |
+| Route handlers / server APIs | `/api/auth/*` (Auth.js), `/api/account`, `/api/github/repositories`, `/api/github/app/{connect,callback}`, `/api/portfolio/{site,publish,publish/status}` [Implemented]; server-side persistence | [Future] beyond these |
 | GitHub pull requests, OAuth, and blog providers | Further ingestion | [Future] (T10.2, T10.3, T10.8) |
 | Durable database | Multi-device persistence | [Future] |
 | AI drafting provider | Optional evidence-grounded wording drafts | [Future] |
-| Portfolio publisher | Real public deployment | [Future] |
+| Portfolio publisher (`src/lib/publishers/github-pages`, `src/features/publishing`, `src/components/portfolio/publish-*.tsx`) | Publishes the saved draft's public copy to the developer's own `<username>.github.io` GitHub Pages site through Updater's GitHub App (§13) | [Implemented] (T10.9) |
 
 ```mermaid
 flowchart LR
@@ -62,7 +62,7 @@ flowchart LR
     Blog["RSS / DEV / Hashnode providers"]
     DB[("Durable database")]
     AI["AI drafting adapter"]
-    Pub["Portfolio publisher"]
+    Pub["Publishing beyond GitHub Pages user sites<br/>(GitHub Pages publishing is implemented, §13)"]
   end
   Registry -. "future adapters" .-> API
   API -.-> GH & Blog & DB & AI & Pub
@@ -106,7 +106,7 @@ Exact versions are pinned in `package.json` and `package-lock.json`. Those files
 | Source-provider adapters | `src/lib/providers` (registry), `src/lib/providers/github` (server-side GitHub client and the browser–server response contract) | Provider definitions, capability metadata, and (for real providers) fetch and normalize | Write to storage directly. Providers return data, and the store records it. |
 | Authentication and authorization | `src/auth.ts` (Auth.js setup, server-only), `src/proxy.ts` (gate), `src/lib/auth` (pure config, access rules, account schema), `src/app/api/{auth,account}`, `src/components/account` | Decide who may open the app and which workspace scope the browser uses (§10) | Read or write workspace data on the server; decide access in components |
 | AI-provider adapters | none yet | [Future] optional `DraftingProvider` (§12) | |
-| Publishing adapters | none yet | [Future] `Publisher` (§13) | |
+| Publishing adapters | `src/lib/publishers/github-pages` (server-only GitHub App client, renderer, publisher, route answers; `contract.ts` is shared with the browser) | Mint short-lived installation tokens, write only the developer's site repository, report GitHub's build status (§13) | Store tokens; write to the workspace; claim publication GitHub didn't report |
 | Utilities | `src/lib/utils` | IDs, dates, class names (`cn`), small helpers | Accumulate unrelated logic |
 | Navigation config | `src/lib/navigation.ts` | Labels, routes, and page descriptions for the six destinations; active-route matching | Import React |
 
@@ -217,6 +217,26 @@ e2e/
 └── accessibility.spec.ts      # axe WCAG 2.2 A/AA scans in both themes, reduced motion, visible focus
 ```
 
+**Added with GitHub Pages publishing (T10.9):**
+
+```
+src/
+├── app/api/github/app/connect/route.ts      # start GitHub App authorization (state + PKCE cookie)
+├── app/api/github/app/callback/route.ts     # verify, learn the GitHub account, set the link cookie
+├── app/api/portfolio/site/route.ts          # GET site status; DELETE forget the link
+├── app/api/portfolio/publish/route.ts       # POST publish (same origin, ≤ 1 MB, validated again)
+├── app/api/portfolio/publish/status/route.ts # GET GitHub Pages build status for a commit
+├── lib/publishers/github-pages/
+│   ├── config.ts  github-api.ts  link.ts  link-cookie.ts  render.ts  publisher.ts  handlers.ts   # server (tested)
+│   ├── server.ts                            # route plumbing: env config, session, link cookie, origin check
+│   └── contract.ts                          # response schemas + browser request helpers (no server imports)
+├── lib/validation/publication.ts            # public copy and publish request schemas
+├── features/publishing/                     # snapshot.ts (public copy, fingerprint), state.ts (§7.4 operations)
+├── components/portfolio/                    # publish-bar.tsx, publish-dialog.tsx, github-callback-notice.tsx
+└── test/publishing.ts                       # route stubs and GitHub response helpers for tests
+e2e/publishing.spec.ts                       # real routes without a GitHub App; stubbed publish journey
+```
+
 ### 4.1 Cache Components and preserved routes [Implemented]
 
 With `cacheComponents` enabled (D-011), Next.js keeps up to three visited routes mounted but hidden (React `<Activity>`, `display: none`) instead of unmounting them. Consequences for this codebase:
@@ -302,8 +322,13 @@ All identifiers are opaque strings generated with `crypto.randomUUID()`, with a 
 ### 5.10 `PublishingState`
 
 - **Purpose:** truthfully records publication of the portfolio.
-- **Fields:** `draftSavedAt?`, `publisherId: string | null` (`null` in the MVP), `status` (§7.4), `url?` (only after confirmed publication), `publishedAt?`, `lastError?: { at, message }`.
-- **MVP:** always `{ publisherId: null, status: 'not_published' }`.
+- **Fields (as implemented, T10.9):** either `{ publisherId: null, status: 'not_published' }`, or `{ publisherId: 'github_pages', status: 'publishing' | 'published' | 'failed', repository, live?, pending?, lastError? }` where
+  - `repository` is `<owner>/<owner>.github.io` (case-insensitive owner match),
+  - `live: { url, commitSha, contentHash, publishedAt }` is the copy GitHub Pages confirmed as built (set only by `confirmPublished`),
+  - `pending: { commitSha, contentHash, startedAt }` is the commit Updater wrote and GitHub hasn't confirmed yet,
+  - `lastError: { at, message }` is GitHub's reason for the last failed publish.
+- **Consistency (schema-enforced):** `publishing` ⇔ `pending`; `published` ⇒ `live` and no `pending`; `failed` ⇒ `lastError` and no `pending`. A failure keeps `live`. Old documents (`not_published`) load unchanged, so no migration was needed.
+- `contentHash` is an 8-hex FNV-1a fingerprint of the public copy, used only for "Changes since last publish". It is not a security measure.
 
 ### 5.11 `ActivityEntry`
 
@@ -344,7 +369,7 @@ The schemas in `src/lib/validation/domain.ts` are authoritative. They differ fro
 - **`PortfolioProject`** has no `order` field; array order is the display order. Approving a project creates a summary claim referenced by `summaryClaimId`; `summary` holds the user's own text for projects added by hand (D-023).
 - **`PortfolioClaim.projectId`** is optional (D-022). `sourceRemoved` marks demo content kept after its source was removed; such claims may have no evidence.
 - **`Skill`** adds `reviewItemId`, `sourceRemoved`, `createdAt`, and `updatedAt`. Approving a skill whose name already exists (ignoring case) merges the evidence into the existing skill.
-- **`PublishingState`** is exactly `{ publisherId: null, status: 'not_published' }`. The draft save time is the store's save status, not a persisted field.
+- **`PublishingState`** is `{ publisherId: null, status: 'not_published' }` until the first publish, then the GitHub Pages record in §5.10 (T10.9). The draft save time is the store's save status, not a persisted field.
 - **`ActivityEntry.type`** is one of the values in `ACTIVITY_TYPES`.
 - **Conflicts (D-025)** are detected within one source item: records stating different values for the same single-valued fact key are both marked `conflicting`.
 - **Re-ingestion (D-024)** updates the stored snapshot only.
@@ -444,7 +469,7 @@ Manual entries is shown as **"Local"**, not as an external account connection. T
 
 ### 7.4 Publishing status
 
-`not_published` → `publishing` → `published` | `failed`; `published` → `publishing` (republish); `failed` → `publishing` (retry). The MVP has no publisher, so the status stays `not_published` and no transition is reachable.
+`not_published` → `publishing` → `published` | `failed`; `published` → `publishing` (republish); `failed` → `publishing` (retry); `publishing` → `publishing` (publishing again before GitHub answered replaces the pending commit; added in T10.9 so a stuck build never blocks the developer). Implemented in `src/features/publishing/state.ts` (`nextPublishingStatus`, `startPublishing`, `confirmPublished`, `recordPublishFailure`) with a test for every cell. `start` happens only after the server committed the site; `confirm` only for the pending commit and only after GitHub Pages reported it built; approval never calls any of them.
 
 ## 8. API and module contracts
 
@@ -461,7 +486,7 @@ The MVP keeps everything local, so it exposes **module contracts** rather than H
 | Evidence | `evidenceForClaim(ws, claimId)`, `claimsForEvidence(ws, evidenceId)` (selectors) |
 | Review | `editReviewItem`, `dismissReviewItem`, `restoreReviewItem`, `revertReviewEdit` → `Result<Workspace>`; `approveReviewItem(ws, id, { acknowledgeConflict }, now)` → `Result<{ workspace, claimId?, projectId?, skillId? }>`; `nextStatus`, `canPerform` |
 | Portfolio | `addProject`, `updateProject`, `moveProject`, `setProjectVisibility`, `deleteProject`, `addClaim`, `updateClaimText`, `removeClaim`, `addSkill`, `removeSkill`, `projectSummary`, `projectClaims`, `standaloneClaims` |
-| Publishing | `getPublishingState(ws)`. `publish()` is not available in the MVP. |
+| Publishing (T10.9) | Browser: `buildPublicSnapshot(ws)` → `{ portfolio, leftOutDemo, contentHash }`; `requestSite()`, `requestPublish({ portfolio, confirm })`, `requestBuildStatus(commitSha)`, `requestDisconnect()` (parsed with `contract.ts` schemas); `startPublishing`, `confirmPublished`, `recordPublishFailure`, `hasUnpublishedChanges`. Server: `inspectSite`, `publishSite`, `buildStatus` (`publisher.ts`); `GET /api/portfolio/site` → `unavailable` / `not_linked` / `not_installed` / `repository_missing` / `ready` / `error`; `POST /api/portfolio/publish` → commit or `PagesError`; `GET /api/portfolio/publish/status?commit=` → `building` / `built` / `errored` / `superseded` / `not_serving`; `DELETE /api/portfolio/site` forgets the link; `GET /api/github/app/connect` and `/callback` link a GitHub account. |
 | Resumes | `createResume`, `updateResume`, `renameResume`, `duplicateResume`, `deleteResume`, `buildResumeDocument(ws, draft)`, `suggestSelections(ws, targetRole, keywords?)` |
 | Settings / data | `exportWorkspace(ws): string`; `importWorkspace(json, now)` (validates, returns readable `details`); reset is `store.reset()`; `completeOnboarding`, `restartOnboarding` |
 | Storage | `WorkspaceStorage.load(): Result<{ workspace | null, notices }>`; `save(ws, now): Result<{ savedAt }>`; `clear()`; `readRecovery()` |
@@ -479,7 +504,7 @@ The MVP keeps everything local, so it exposes **module contracts** rather than H
 | `POST /api/sources/{id}/sync` | Trigger sync. Returns a job ID and rate-limit info. |
 | `GET /api/evidence?sourceItemId=` | Evidence retrieval |
 | `POST /api/review/{id}/{action}` | Review actions with server-side transition checks |
-| `GET/PUT /api/portfolio/draft`, `POST /api/portfolio/publish` | Drafts and publishing |
+| `GET/PUT /api/portfolio/draft` | Drafts (publishing is implemented, §8.1, §13) |
 | `GET/PUT /api/resumes/{id}`, `GET /api/resumes/{id}/export?format=pdf` | Resumes and export |
 | `GET/PUT /api/settings` | Settings |
 
@@ -562,16 +587,16 @@ sequenceDiagram
 | Account identity | `google:<sub>` from `account.providerAccountId`, stored in the session token as `accountId` and exposed as `session.accountId`. Auth.js's own `user.id` is random per sign-in without an adapter, so it isn't used. | Database user ids |
 | Authorization | `src/proxy.ts` runs `decideAccess` on every request except build assets: signed-out page requests redirect to `/sign-in?callbackUrl=…`, API requests get 401. Public: `/sign-in`, `/api/auth/*`, `/api/account`. There is no server-held workspace data to authorize yet. | Every server read and write checks the session user owns the resource (T10.4) |
 | Workspace scoping | `/api/account` reports `unavailable`, `signed_out`, or `signed_in` with `{ id, name, email }` (validated by `accountStateSchema` in the browser). `WorkspaceProvider` creates a store only for `signed_in`, using `workspaceStorageKeys(scope)`; signed out, unknown, unavailable, or failed → no store, and `WorkspaceGate` explains why (D-030, D-031). The account is re-checked when the tab becomes visible. | Server-side storage per account |
-| OAuth | Google authorization-code flow run by Auth.js: PKCE and `state` checked on the callback (`/api/auth/callback/google`), CSRF token on sign-in/sign-out. No Google access or refresh token is kept. | GitHub OAuth (T10.2) with server-side tokens |
+| OAuth | Google authorization-code flow run by Auth.js: PKCE and `state` checked on the callback (`/api/auth/callback/google`), CSRF token on sign-in/sign-out. No Google access or refresh token is kept. GitHub App user authorization for publishing (T10.9): `state` and an S256 PKCE challenge kept in an encrypted HTTP-only cookie (10 minutes, path `/api/github/app`) bound to the signed-in account; the one-time user token is used once to read `/user` and then revoked. | GitHub OAuth for source import (T10.2) |
 | Sessions | Encrypted JWT in an HTTP-only, `SameSite=Lax` cookie (`Secure` on HTTPS) managed by Auth.js. The avatar URL is dropped from the token. Sign-out clears the cookie, then the browser loads `/sign-in` with a full navigation so no workspace stays in memory. The proxy reads the session but never re-issues it (`withoutSessionRefresh`, D-032): Auth.js would otherwise re-set the cookie on every proxied response, including background prefetches, and a late response could put back a session that was just signed out or replaced. Deletions of an unreadable cookie still pass. So a session lasts Auth.js's `maxAge` (30 days) from sign-in, without sliding renewal. | Server-side session revocation (needs a database, T10.4) |
 | Response headers | `next.config.ts` sends `Content-Security-Policy: frame-ancestors 'none'`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, and a restrictive `Permissions-Policy` on every route; `X-Powered-By` is off (D-034). | A script-src CSP; Next.js's inline scripts need a per-request nonce, which makes every page dynamic (memory.md open question 9) |
-| Server-only credentials | `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` as plain env vars, read only in `src/auth.ts`; optional `GITHUB_TOKEN`, read only in `src/app/api/github/repositories/route.ts` (§9.1); never `NEXT_PUBLIC_*` | `GITHUB_CLIENT_SECRET` |
+| Server-only credentials | `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` as plain env vars, read only in `src/auth.ts`; optional `GITHUB_TOKEN`, read only in `src/app/api/github/repositories/route.ts` (§9.1); optional GitHub App credentials (`GITHUB_APP_ID`, `GITHUB_APP_SLUG`, `GITHUB_APP_CLIENT_ID`, `GITHUB_APP_CLIENT_SECRET`, `GITHUB_APP_PRIVATE_KEY`), read only in `src/lib/publishers/github-pages/server.ts` (§13); never `NEXT_PUBLIC_*` | `GITHUB_CLIENT_SECRET` for T10.2 |
 | Environment variables | `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` are required to use the app (tests, lint, and build need none). Read at server start (restart after changes); the sign-in page lists missing names only in development. | Validated at startup with a schema |
 | Input validation | Zod for forms, imports, persisted data, and the `/api/account` response. `safeCallbackPath` accepts only same-site paths after sign-in. | Same schemas re-used server-side |
 | External URLs | `safeExternalUrl()`: parse with `URL` and allow only `http:`/`https:`. Rendered with `rel="noopener noreferrer"`. The GitHub client requests only the fixed `https://api.github.com` origin with a validated username, refuses redirects, and never follows URLs from responses (§9.1). | Fetchers of user-supplied URLs (RSS, T10.8) add allow-lists and block private address ranges (SSRF) |
 | Untrusted source text | Rendered as React text nodes only. No `dangerouslySetInnerHTML` except the static theme bootstrap script. Markdown is not rendered. Auth.js error codes map to fixed messages. | If rich text is ever rendered, use a vetted sanitizer |
-| Deletion and disconnection | Remove demo data, delete items, reset workspace (with confirmation), JSON export. Reset deletes only the current scope's keys. | Server-side deletion, including provider token revocation |
-| Cryptography | None of our own. Session encryption is Auth.js's. | Platform and library primitives only |
+| Deletion and disconnection | Remove demo data, delete items, reset workspace (with confirmation), JSON export. Reset deletes only the current scope's keys. "Disconnect GitHub" clears the link cookie; the app stays installed on GitHub until the developer uninstalls it there, and the published site stays in their repository. | Server-side deletion, including provider token revocation |
+| Cryptography | None of our own. Session encryption is Auth.js's; the GitHub link cookies use Auth.js's same JWT encryption (`next-auth/jwt`) with their own salts. The GitHub App JWT is signed with `jose` (RS256) from a key read by Node's `createPrivateKey`; PKCE uses Node's `randomBytes` and SHA-256. | Platform and library primitives only |
 
 **Limitation (recorded, not hidden).** Scoping is enforced by the app, not by the browser: anyone with access to the browser profile can still read every account's stored workspace with developer tools, and a workspace doesn't follow its account to another device. Both end with server persistence (T10.4).
 
@@ -585,7 +610,7 @@ This architecture claims no security property beyond what the code implements. B
 | Where | `localStorage`: `updater:workspace:v1:account:<encoded account id>` per signed-in account (D-030), and `updater:theme`. The unsuffixed `updater:workspace:v1` is only read to offer moving a pre-sign-in workspace (`LEGACY_WORKSPACE_KEYS`). |
 | Persists across reloads | Everything in the workspace document, plus the theme |
 | Temporary | Unsaved form input, open dialogs, filters, and toasts (in-memory React state) |
-| Never stored | Tokens, API keys, passwords, or anything secret |
+| Never stored | Tokens, API keys, passwords, or anything secret. The publication record holds only the repository name, commit ids, content fingerprints, the site address, and times (D-021 strict schema). |
 | Save model | Saves after each successful action (localStorage is synchronous, so there is no `saving` state). The store exposes `save: 'idle' | 'saved' | 'error'` with `savedAt` or `error`, and refuses any result that fails `workspaceSchema` (D-020). If storage is blocked at load, the app works in memory for the visit and the save status says so. Another tab's save triggers a reload of the stored workspace. |
 | Load model | Read → JSON parse → Zod validate → migrate by `schemaVersion` → hydrate. On failure the raw value is preserved under `updater:workspace:recovery` (with the same `:account:<id>` suffix when signed in), and the user is offered export or reset. |
 | Pre-sign-in data | A workspace saved before sign-in became compulsory is never opened for an account automatically. Settings → Account offers to move it into the signed-in account (replace, then delete the unscoped keys). |
@@ -617,20 +642,58 @@ interface DraftingProvider {
 
 **Export vs ATS.** The MVP exports through the browser's print dialog with a print stylesheet. It uses semantic HTML, a single column, and real text (no images of text). No ATS compatibility is claimed, because none has been validated.
 
-## 13. Publishing architecture
+## 13. Publishing architecture [Implemented] (T10.9, D-037, D-038)
 
-States are kept separate: **local preview** (rendered in the app, never public) → **saved draft** (persisted locally) → **approved content** (claims with `approvedAt`) → **published** (confirmed by a publisher).
+States are kept separate: **local preview** (rendered in the app, never public) → **saved draft** (persisted locally) → **approved content** (claims with `approvedAt`) → **published** (confirmed by GitHub Pages).
 
-```ts
-interface Publisher {   // [Future]
-  id: string;
-  publish(snapshot: PortfolioSnapshot): Promise<Result<{ url: string; deploymentId: string; publishedAt: string }>>;
-  status(deploymentId: string): Promise<Result<'pending' | 'live' | 'failed'>>;
-  rollback?(deploymentId: string): Promise<Result<void>>;
-}
+The publisher writes the portfolio to the **developer's own** GitHub Pages user site, `https://<username>.github.io/`, through Updater's GitHub App. The site lives in their repository: Updater can be disconnected or the app uninstalled and the site stays online, with its history and a `portfolio.json` copy of the content. Only `<username>.github.io` repositories are supported (owner decision, 2026-10-31).
+
+```mermaid
+sequenceDiagram
+  actor D as Developer
+  participant B as Browser (Portfolio page)
+  participant U as Updater server
+  participant G as GitHub
+  D->>B: Connect GitHub
+  B->>U: GET /api/github/app/connect
+  U-->>B: redirect to GitHub authorize (state + PKCE), pending-authorization cookie
+  B->>G: authorize Updater's GitHub App
+  G-->>B: redirect /api/github/app/callback?code&state
+  B->>U: callback (session + pending cookie)
+  U->>G: exchange code (PKCE), GET /user, revoke the user token
+  U-->>B: encrypted link cookie {accountId, githubUserId, login}; /portfolio?github=linked
+  B->>U: GET /api/portfolio/site
+  U->>G: app JWT → /users/{login}/installation; installation token for {login}.github.io only; repo + Pages settings
+  U-->>B: ready / not_installed / repository_missing (setup steps)
+  D->>B: Publish (confirm)
+  B->>U: POST /api/portfolio/publish {portfolio, confirm}
+  U->>U: validate public copy again; render static site
+  U->>G: check gh-pages (marker) and Pages source; create tree, commit, move gh-pages (no force); enable Pages if needed
+  U-->>B: {commitSha, siteUrl, pagesSetup}
+  B->>B: startPublishing → "Publishing"
+  loop every 5 s, up to 3 min
+    B->>U: GET /api/portfolio/publish/status?commit=
+    U->>G: GET pages/builds/latest (and gh-pages head)
+  end
+  U-->>B: built (url, time) → confirmPublished → "Published"; errored/superseded → recordPublishFailure
 ```
 
-A publisher would set `PublishingState.status` only from its own confirmed result and would record `url` only once it is live. Failures keep the previous published URL and show the error. The MVP has no publisher, so the UI states "Publishing is not available in this version" and never presents the local preview as publicly accessible.
+```ts
+// Implemented as module functions rather than an interface object (src/lib/publishers/github-pages/publisher.ts):
+inspectSite(deps, config, link): Outcome<Inspection>            // installed? repository? what Pages serves
+publishSite(deps, config, link, portfolio, confirm): Outcome<PublishResult>
+buildStatus(deps, config, link, commitSha): Outcome<BuildStatus> // never "built" for another commit
+```
+
+- **What is published.** `buildPublicSnapshot` (pure, `src/features/publishing/snapshot.ts`) builds the public copy from the saved draft: the profile without email, visible non-demo skills, visible non-demo projects (summary, technologies, achievements, links), and non-demo standalone achievements. `publicPortfolioSchema` (`src/lib/validation/publication.ts`) validates it in the browser and again on the server (body ≤ 1 MB).
+- **Rendering.** `renderSite` writes `index.html`, `404.html`, `site.css`, `portfolio.json`, `.nojekyll`, and the marker `.updater-site`. Plain HTML in the preview's order, every string escaped, every link re-checked with `safeExternalUrl`, no scripts, and a `Content-Security-Policy` meta (`default-src 'none'; style-src 'self'`). The site follows the system light/dark preference with the app's tokens. It is generated by string templates, not React, so the route doesn't render React on the server; the preview and the site are kept equivalent by tests on the same content.
+- **Least privilege.** The app asks for Contents (write), Pages (write), and Metadata (read). The developer installs it on their `<username>.github.io` repository only. Each request mints an installation token restricted to that one repository and those permissions. The app JWT is valid ≤ 10 minutes. No token is stored or sent to the browser.
+- **Ownership checks.** The installation must belong to the GitHub account verified when linking (numeric id, so a renamed or reassigned login doesn't match), and the repository's owner id must match too. The link cookie is bound to the signed-in Updater account.
+- **Safe writes.** Only `refs/heads/gh-pages` of that repository is written, never with `force`. The new commit's parent is the current head, so history is kept. A branch without `.updater-site` is replaced only with `confirm.replaceBranch`; a Pages site serving another branch or a workflow is switched (PUT `build_type: legacy`, `gh-pages`, `/`) only with `confirm.switchPagesSource`. Both refusals happen before any write. If GitHub refuses to create or switch the Pages site, the publish still succeeds as a commit and reports `pagesSetup: "manual"`, and the page explains the setting to change.
+- **Truthful status.** The browser records `publishing` with the commit after the server's answer, and `published` with GitHub's `html_url` and build time only when `/pages/builds/latest` reports `built` for that commit. `errored` records GitHub's message; `superseded` (the branch moved on) records a failure explaining it. A failure keeps the last live copy. After 3 minutes without an answer the page stops asking and offers "Check status"; reloading resumes waiting.
+- **Requests.** Fixed origins (`api.github.com`, and `github.com` only for the code exchange), paths from validated values, `redirect: "error"`, 10 s timeouts, GitHub's rate limits returned as `rate_limited` with the reset time. State-changing routes require a same-origin `Origin` header as well as the `SameSite=Lax` session.
+- **Configuration.** Publishing is optional (rules.md §7.5.5): without all five `GITHUB_APP_*` variables `GET /api/portfolio/site` answers `unavailable`, the Publish control is disabled with "Publishing isn't set up on this server", and nothing else changes.
+- **Not built.** Rollback or unpublishing from Updater (the developer can revert or delete `gh-pages` in their repository), project-site repositories, custom domains set from Updater, and webhooks.
 
 ## 14. Error handling and observability
 
@@ -642,7 +705,7 @@ A publisher would set `PublishingState.status` only from its own confirmed resul
 | Persistence | `storage_unavailable`, `storage_quota_exceeded`, `storage_corrupt` | Banner: "Changes could not be saved". In-memory state kept. Recovery flow on load. |
 | Import | `import_invalid` | Lists errors. Existing data untouched. |
 | Provider failures [Implemented for GitHub, T10.1] | `invalid_username`, `not_found`, `rate_limited` (+ `resetAt`), `token_rejected`, `provider_error`, `unreachable`; in the browser also `signed_out`, `server_unavailable`, `bad_response` | Shown in the import dialog with "Try again". GitHub-side failures on an existing source are recorded on `Source.lastSync` and set `needs_attention`. |
-| Publishing [Future] | `publish_failed` | Recorded on `PublishingState.lastError` |
+| Publishing [Implemented, T10.9] | `not_configured`, `not_linked`, `not_installed`, `repository_missing`, `repository_empty`, `branch_in_use`, `pages_source_conflict`, `branch_changed`, `authorization_failed`, `invalid_request`, `rate_limited` (+ `resetAt`), `provider_error`, `unreachable`; in the browser also `signed_out`, `server_unavailable`, `bad_response` | Shown in the publish dialog or bar. `branch_in_use` and `pages_source_conflict` ask for that confirmation. A failed GitHub Pages build is recorded on `PublishingState.lastError`; failures before a commit change nothing and aren't recorded. |
 | Unexpected | `unexpected` | Route `error.tsx` boundary with retry |
 
 Logging: development-only `console.warn`/`console.error` with error codes. Workspace contents, tokens, and raw source payloads are never logged. There is no telemetry in the MVP.
@@ -651,10 +714,10 @@ Logging: development-only `console.warn`/`console.error` with error codes. Works
 
 | Level | Tooling | Scope |
 | --- | --- | --- |
-| Unit | Vitest | Review transitions (every cell of §7.1), claim origin rules, proposal templates (no invented numbers), ingestion validation and de-duplication, URL validation, completeness, tailoring scoring, migrations, storage load/save including corrupt data; the GitHub client with an injected `fetch` (headers, token, username validation, normalization of a recorded real response, paging cap, rate limits, every error mapping) and the GitHub import, failure recording, and removal |
+| Unit | Vitest | Review transitions (every cell of §7.1), claim origin rules, proposal templates (no invented numbers), ingestion validation and de-duplication, URL validation, completeness, tailoring scoring, migrations, storage load/save including corrupt data; the GitHub client with an injected `fetch` (headers, token, username validation, normalization of a recorded real response, paging cap, rate limits, every error mapping) and the GitHub import, failure recording, and removal; publishing (T10.9): every cell of §7.4, the public copy (no email, no demo, no hidden items), the static site renderer (escaping, unsafe links, no scripts), app config, link cookies (wrong account, tampering, salts), and the publisher against a fake GitHub API (app JWT verified with the public key, one-repository token, refusals before any write, no force, manual Pages fallback, build states, rate limits) |
 | Component | Vitest, Testing Library, jsdom | Review item actions, form validation messages, theme toggle state, confirmation dialogs, labeled demo data rendering |
 | Integration | Vitest | Store with real reducer and an in-memory storage adapter: approve → claim appears, edits persist, export → import round trip |
-| End-to-end | Playwright (Chromium), `npm run test:e2e` after `npm run build` | Journeys A–E (including the GitHub import, with the browser's call to Updater's route stubbed, plus the real route's 401 and 400 answers), sign-in gate and account isolation, theme persistence without flash, reload persistence, keyboard navigation of the shell, no horizontal overflow, export/import/reset, recovery screen. Fails on any browser console error the test didn't declare. |
+| End-to-end | Playwright (Chromium), `npm run test:e2e` after `npm run build` | Journeys A–E (including the GitHub import, with the browser's call to Updater's route stubbed, plus the real route's 401 and 400 answers; publishing with the browser's calls to Updater's publishing routes stubbed, plus the real routes' answers on a server without a GitHub App: 401 signed out, 403 cross-origin, 503 not configured), sign-in gate and account isolation, theme persistence without flash, reload persistence, keyboard navigation of the shell, no horizontal overflow, export/import/reset, recovery screen. Fails on any browser console error the test didn't declare. |
 | Accessibility | axe-core via `@axe-core/playwright` | WCAG 2.2 A/AA rules on every page in both themes plus a populated resume builder and the sign-in page. axe covers a subset of WCAG; screen-reader behavior is reviewed by hand. |
 | Static | `npm run lint`, `npm run typecheck`, `npm run build` | Run on every change |
 
@@ -665,7 +728,8 @@ Logging: development-only `console.warn`/`console.error` with error codes. Works
 - **Environment variables:** the three sign-in variables above are required to use the app; self-hosting with `npm run start` also needs `AUTH_TRUST_HOST=true` or `AUTH_URL`. `GITHUB_TOKEN` is optional and only raises GitHub's rate limit for the public import (a token with no scopes is enough). `.env.example` documents them and lists reserved, commented-out names for future integrations.
 - **Network:** the GitHub import needs outbound HTTPS from the server to `api.github.com`. Without it, imports fail with a recorded error and the rest of the app is unaffected.
 - **Future prerequisites:** a registered GitHub OAuth app, a database, a publisher target, and server env var validation.
-- **Known MVP limitations:** single browser and single device. Clearing site data erases the workspace (mitigated by JSON export). The only real integration is the read-only GitHub public import. No publishing. Print-to-PDF only.
+- **Publishing (T10.9):** needs a GitHub App registered by the deployment owner (README → "Publishing to GitHub Pages") and its five `GITHUB_APP_*` variables, plus outbound HTTPS to `api.github.com` and `github.com`. Without them publishing is off and everything else works.
+- **Known MVP limitations:** single browser and single device. Clearing site data erases the workspace (mitigated by JSON export). Real integrations: the read-only GitHub public import and publishing to the developer's own GitHub Pages site. The GitHub link is per browser. Print-to-PDF only.
 
 ## 17. Architectural decisions
 
@@ -709,3 +773,5 @@ Full context and status are kept in [`memory.md`](./memory.md#decision-log), usi
 | D-034 | Static security headers in `next.config.ts`; no script-src CSP yet | Nonce-based CSP now | Blocks clickjacking of destructive actions without making pages dynamic | Script injection defence still relies on React text rendering (§10) |
 | D-035 | GitHub public repository import through Updater's own route (`/api/github/repositories`), read-only, optional server `GITHUB_TOKEN`; labeled "Public import" with statuses `connected`/`needs_attention` only | Browser calls GitHub directly (CORS allows it); wait for OAuth (T10.2) | Keeps any token server-side; first real evidence source without credentials; truthful about unverified ownership | Shared 60 requests/hour per server IP without a token; ownership unverified until T10.2 |
 | D-036 | The user selects which repositories to import; forks are excluded; `repo:<id>` external ids; creation date as `occurredAt`; at most 300 repositories per check | Import everything; include forks | User control and a manageable review queue; ids survive renames; stable evidence | Repositories removed upstream stay until the user removes the source |
+| D-037 | Publish to the developer's own `<username>.github.io` GitHub Pages site through a GitHub App installed on that repository only; commit to `gh-pages` (marker file, no force); enable Pages via API with a manual fallback; confirm before replacing a foreign `gh-pages` or switching the Pages source | Updater-hosted public page (needs a database); OAuth App with the `repo` scope; publishing to the default branch; project-site repositories | Owner wants the site to belong to the developer; least privilege; never overwrite their content silently | Needs a GitHub App per deployment; Pages on private repositories needs a paid plan; this container can't reach GitHub's write APIs, so a live publish is verified only on a deployment |
+| D-038 | Remember the linked GitHub account in an encrypted HTTP-only cookie (Auth.js JWT encryption, own salt) bound to the Updater account; mint short-lived installation tokens per request; keep no GitHub token | Database table (T10.4 undecided); storing the user token | No database needed; nothing long-lived to leak | The link is per browser, like the workspace (D-030); re-linking is one click |
