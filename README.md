@@ -42,16 +42,16 @@ Without a token, GitHub allows 60 requests per hour from the server's IP address
 
 Publishing puts your portfolio on **your own** GitHub Pages site, `https://<username>.github.io/`. The site is a static site in a repository in your GitHub account. Updater writes to it only when you choose **Publish**, and only to its `gh-pages` branch. If you disconnect Updater or uninstall its app, the site stays online and stays yours. Without the setup below, the Portfolio page says publishing isn't set up on this server and everything else works as usual.
 
-**Who does what.** Whoever runs an Updater deployment registers **one** GitHub App for it (part 1). Every developer who uses that deployment, including you, then connects their own GitHub account and publishes to their own repository (part 2). Other developers don't create an app or set any variables. Each separate deployment (another domain, or your local `npm run dev`) needs its own app or its own callback URL, because GitHub only sends developers back to the callback URLs registered on the app.
+**Who does what.** Whoever runs an Updater deployment registers **one** GitHub App for it (part 1). Every developer who uses that deployment, including you, then connects their own GitHub account and publishes to their own repository (part 2). Other developers don't create an app or set any variables. Each separate deployment (another domain, or your local `npm run dev`) needs its own app or its own redirect URI on the app, because GitHub only sends developers back to the redirect URIs registered on the app.
 
 ### Part 1: once per deployment (the person running Updater)
 
 1. Open GitHub → your profile picture → **Settings** → **Developer settings** → **GitHub Apps** → **New GitHub App** (or go to `https://github.com/settings/apps/new`).
 2. **GitHub App name:** any unused name. GitHub turns it into the app's URL name (slug), for example `My Updater` → `my-updater`.
 3. **Homepage URL:** your deployment's address, for example `https://<your-domain>`.
-4. **Callback URL:** `https://<your-domain>/api/github/app/callback`. It must match exactly. To also use the app from `npm run dev`, choose **Add Callback URL** and add `http://localhost:3000/api/github/app/callback`.
-5. Leave **Expire user authorization tokens** as it is. Leave **Request user authorization (OAuth) during installation** off and **Setup URL** empty.
-6. **Webhook:** turn **Active** off. Updater doesn't use webhooks.
+4. **Redirect URI** (under "Identifying and authorizing users"; older versions of GitHub's form call it **Callback URL**): `https://<your-domain>/api/github/app/callback`. It must match exactly, so use your production address, not a preview deployment's. To also use the app from `npm run dev`, choose **Add redirect URI** and add `http://localhost:3000/api/github/app/callback`. Leave **Allow wildcard matching** off.
+5. Leave **Expire user authorization tokens** as it is. Leave **Request user authorization (OAuth) during installation** and **Enable Device Flow** off, and **Setup URL** empty.
+6. **Webhook:** turn **Active** off (it's on by default, and while it's on GitHub requires a Webhook URL). Updater doesn't use webhooks, so leave every event under **Subscribe to events** unticked.
 7. **Repository permissions:** Contents: **Read and write**, Pages: **Read and write**, Metadata: **Read-only**. Leave every other repository permission and every account permission at **No access**.
 8. **Where can this GitHub App be installed?** Choose **Any account**, so other developers can install it on their own repository. With "Only on this account", only you can publish.
 9. Choose **Create GitHub App**. On the app's page, choose **Generate a new client secret** (copy it now: GitHub shows it once), then under **Private keys** choose **Generate a private key** (a `.pem` file downloads).
