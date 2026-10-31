@@ -52,26 +52,43 @@ export const DEMO_PROVIDER: ProviderDescriptor = {
   itemKinds: ["repository", "pull_request", "article"],
 };
 
+/**
+ * GitHub, read-only public repository import (T10.1). Not an account
+ * connection: there is no authorization, so it is labeled "Public import",
+ * never "Connected" (rules.md §7.1.7). Pull requests need T10.3.
+ */
 export const GITHUB_PROVIDER: ProviderDescriptor = {
   id: "github",
   displayName: "GitHub",
   kind: "code_host",
-  availability: "planned",
-  summary: "Your public repositories and merged pull requests, with links reviewers can verify.",
+  availability: "available",
+  summary: "Public repositories you own, with links reviewers can verify.",
   capabilities: [
-    { id: "repositories", label: "Repositories", description: "Name, description, topics, primary language, and URL." },
-    { id: "pull_requests", label: "Merged pull requests", description: "Title, repository, merge date, and URL." },
+    {
+      id: "repositories",
+      label: "Public repositories",
+      description: "Name, description, primary language, topics, license, creation date, and URL. Forks are left out.",
+    },
+    {
+      id: "pull_requests",
+      label: "Pull requests (planned)",
+      description: "Merged pull requests to other projects aren't imported yet.",
+    },
   ],
   permissions: {
-    reads: ["Public repositories and pull requests (read-only)."],
-    never: ["Never writes to your account.", "Never reads private code without a separate, explicit grant."],
+    reads: ["Public repository data for the username you enter, through GitHub's public API. No sign-in to GitHub."],
+    never: [
+      "Never writes to GitHub.",
+      "Never reads private repositories.",
+      "Never sends your workspace to GitHub: only the username is sent, by Updater's server.",
+    ],
   },
   setupNotes: [
-    "Not available yet.",
-    "Planned flow: you'll sign in with GitHub and grant read-only access to public repositories. Updater's server keeps the authorization; this browser never stores a token.",
+    "Enter a GitHub username, review the public repositories found, and choose which to import. Each becomes a proposal in the Review Queue.",
+    "Updater can't confirm that the account is yours. Import only your own repositories.",
   ],
-  syncNote: "Not synchronized: this integration isn't built yet.",
-  itemKinds: ["repository", "pull_request", "contribution"],
+  syncNote: "Imported when you ask. Use “Check for updates” to refresh; nothing syncs in the background.",
+  itemKinds: ["repository"],
 };
 
 export const RSS_PROVIDER: ProviderDescriptor = {
@@ -113,7 +130,9 @@ export function findSourceForProvider(ws: Workspace, providerId: ProviderId): So
 /**
  * The status shown for a provider, derived from real state only
  * (architecture.md §7.3). A planned provider is always `planned`. Manual
- * entries are always usable locally (`connected`, shown as "Local"). The demo
+ * entries are always usable locally (`connected`, shown as "Local"). GitHub
+ * is `not_connected` until an import succeeds, then whatever the source
+ * recorded (`connected`, or `needs_attention` after a failed check). The demo
  * provider is `demo` only while fixtures are loaded.
  */
 export function providerStatus(provider: ProviderDescriptor, ws: Workspace): SourceStatus {
@@ -121,7 +140,9 @@ export function providerStatus(provider: ProviderDescriptor, ws: Workspace): Sou
     case "planned":
       return "planned";
     case "available":
-      return "connected";
+      // Manual entries always work locally. A remote provider's status is what its source recorded.
+      if (provider.kind === "local") return "connected";
+      return findSourceForProvider(ws, provider.id)?.status ?? "not_connected";
     case "demo":
       return findSourceForProvider(ws, provider.id) ? "demo" : "not_connected";
   }
@@ -132,13 +153,18 @@ export type StatusPresentation = {
   tone: "success" | "warning" | "error" | "info" | "neutral" | "demo" | "planned";
 };
 
-/** Badge label and tone (design.md §9). Manual entries read "Local", never "Connected". */
+/** Badge label and tone (design.md §9). Manual entries read "Local" and GitHub "Public import", never "Connected". */
 export function presentStatus(provider: ProviderDescriptor, status: SourceStatus): StatusPresentation {
   switch (status) {
     case "connected":
-      return provider.kind === "local" ? { label: "Local", tone: "success" } : { label: "Connected", tone: "success" };
+      if (provider.kind === "local") return { label: "Local", tone: "success" };
+      // A public import isn't an authorized connection (rules.md §7.1.7).
+      if (provider.id === "github") return { label: "Public import", tone: "success" };
+      return { label: "Connected", tone: "success" };
     case "not_connected":
-      return provider.kind === "fixture" ? { label: "Not loaded", tone: "neutral" } : { label: "Not connected", tone: "neutral" };
+      if (provider.kind === "fixture") return { label: "Not loaded", tone: "neutral" };
+      if (provider.id === "github") return { label: "Not set up", tone: "neutral" };
+      return { label: "Not connected", tone: "neutral" };
     case "needs_attention":
       return { label: "Needs attention", tone: "warning" };
     case "syncing":

@@ -4,7 +4,7 @@ import type { ProviderId, SourceItemKind } from "@/types/domain";
  * Source-provider contract (architecture.md §9). Descriptors are data: the
  * Sources page renders capabilities and permissions verbatim from them.
  *
- * - `available`: works in this version (Manual entries).
+ * - `available`: works in this version (Manual entries, GitHub public import).
  * - `demo`: loads labeled fixture data, never a real account.
  * - `planned`: not implemented. Exposes no operations, so the UI cannot
  *   render a connect button for it.
@@ -28,9 +28,9 @@ export type ProviderDescriptor = {
 };
 
 /**
- * A provider that can retrieve data. Future GitHub and blog adapters
- * implement this on the server; nothing in the MVP does, because the only
- * working sources are local (manual entries) or fixtures (demo).
+ * A page of raw items from a provider. The GitHub import
+ * (`lib/providers/github`) returns its own listing shape instead, because
+ * it pages internally on the server; blog adapters may use this.
  */
 export type SyncPage = {
   /** Raw items. Validated by ingestion, never trusted. */

@@ -145,15 +145,16 @@ export function OnboardingFlow() {
             </Button>
           </div>
           <div className="rounded-md border border-dashed border-border-strong px-4 py-3">
-            <h3 className="text-label font-semibold">Planned integrations</h3>
-            <p className="text-support text-foreground-secondary">Not available yet, so they can&apos;t be connected:</p>
+            <h3 className="text-label font-semibold">More sources</h3>
             <ul className="mt-1 flex flex-col gap-1 text-support text-foreground-secondary">
-              {[GITHUB_PROVIDER, RSS_PROVIDER].map((provider) => (
-                <li key={provider.id}>
-                  <span className="font-medium text-foreground">{provider.displayName}:</span> will read{" "}
-                  {provider.permissions.reads.join(" ").replace(/\.$/, "").toLowerCase()}. {provider.permissions.never[0]}
-                </li>
-              ))}
+              <li>
+                <span className="font-medium text-foreground">{GITHUB_PROVIDER.displayName}:</span> import public
+                repositories from Sources at any time. Read-only, with no GitHub sign-in.
+              </li>
+              <li>
+                <span className="font-medium text-foreground">{RSS_PROVIDER.displayName}:</span> planned, not available
+                yet. Will read {RSS_PROVIDER.permissions.reads.join(" ").replace(/\.$/, "").toLowerCase()}.
+              </li>
             </ul>
             <p className="mt-1 text-support text-muted">
               Details are on <Link href="/sources" className="text-link underline underline-offset-4">Sources</Link>.

@@ -1,6 +1,6 @@
 # Updater — Implementation Tracker
 
-Last updated: 2026-10-30 (Phase D verification and hardening) · Related: [`PRD.md`](./PRD.md) §15 (release readiness) · [`memory.md`](./memory.md) · [`rules.md`](./rules.md) §7.7
+Last updated: 2026-10-31 (Phase E: GitHub public repository import, T10.1) · Related: [`PRD.md`](./PRD.md) §15 (release readiness) · [`memory.md`](./memory.md) · [`rules.md`](./rules.md) §7.7
 
 **Status vocabulary:** `Todo` · `In Progress` · `Blocked` · `Done`.
 **Priorities:** `P0` required for the MVP · `P1` expected in the MVP if feasible · `P2` post-MVP.
@@ -15,8 +15,8 @@ The project owner reviews and approves each execution phase before the next one 
 | A — Bootstrap | Phase 1 | **Done. Approved by the owner (Phase B requested 2026-10-28).** |
 | B — Foundation | Phase 2 (plus T8.2) | **Done. Approved by the owner (Phase C requested 2026-10-29).** |
 | C — Core functionality | Phases 3–8 | **Done. Approved by the owner (Phase D requested 2026-10-30).** |
-| D — Verification | Phase 9 | **Done. Awaiting owner review.** Re-verified Phases A–C instead of assuming them; see memory.md change history. |
-| E — Next priorities | Phase 10 selection | Todo. T10.5 was started early at the owner's explicit request (2026-10-30). |
+| D — Verification | Phase 9 | **Done. Approved by the owner (Phase E requested 2026-10-31).** Re-verified Phases A–C instead of assuming them; see memory.md change history. |
+| E — Next priorities | Phase 10 selection | **In Progress. Awaiting owner review.** Assessment done (T10.0); increment T10.1 implemented and verified except one live GitHub request (see T10.1). T10.5 was started early at the owner's explicit request (2026-10-30). |
 
 ## Phase 1 — Repository and documentation bootstrap
 
@@ -142,7 +142,8 @@ These stay open until actually implemented and verified.
 
 | ID | Task | Pri | Status | Deps | Definition of done |
 | --- | --- | --- | --- | --- | --- |
-| T10.1 | GitHub public repository import (read-only, server route, optional `GITHUB_TOKEN`) | P1 | Todo | MVP | Real API data imported through the provider contract. Rate limits handled. Status truthful. |
+| T10.0 | Phase E assessment and next-increment selection | P0 | Done | Phase D | Current state verified, candidates compared, one increment chosen with acceptance criteria. *Verified 2026-10-31:* from a clean `npm ci`, lint, typecheck, `npm test` (233), build, and `npm run test:e2e` (40) all pass, so no MVP repair was needed first. Chose T10.1 (rationale under "Phase E increment" below and in memory.md). |
+| T10.1 | GitHub public repository import (read-only, server route, optional `GITHUB_TOKEN`) | P1 | In Progress | MVP | Real API data imported through the provider contract. Rate limits handled. Status truthful. Criteria T10.1-a to T10.1-j below. *Verified 2026-10-31:* all criteria except a live import (T10.1-j). *Remaining for Done:* one import against `api.github.com` from a network that allows `/users/{name}/repos`; this container's egress proxy only permits repository-scoped GitHub endpoints (blocker recorded in memory.md). |
 | T10.2 | GitHub OAuth (authorization code + PKCE, server-side tokens) | P2 | Todo | T10.1, T10.5 | Real authorization. Disconnect revokes. No token in the browser. |
 | T10.3 | Pull-request and contribution ingestion | P2 | Todo | T10.1 | Merged PRs become evidence with URLs. |
 | T10.4 | Durable server persistence (`ServerWorkspaceStorage`) | P2 | Todo | T10.5 | Same interface as local storage. One-time local import. |
@@ -152,9 +153,28 @@ These stay open until actually implemented and verified.
 | T10.8 | Blog integrations (RSS/Atom, DEV, Hashnode) | P2 | Todo | MVP | SSRF-safe fetching. Articles become evidence. |
 | T10.9 | Real portfolio publishing (Publisher adapter) | P2 | Todo | T10.4 | Status, URL, failure, and rollback reported truthfully. |
 | T10.10 | Additional export formats (JSON Resume, generated PDF) | P2 | Todo | Phase 7 | Output validated. No ATS claim without validation. |
+| T10.11 | GitHub: show repositories that disappeared upstream (deleted, renamed away, made private) on a check | P2 | Todo | T10.1 | A check lists imported repositories missing from the listing without deleting anything; the user decides. Tested. |
+| T10.12 | GitHub: protect the shared rate limit (per-account throttle or short server cache of listings) | P2 | Todo | T10.1 | One account can't exhaust the server's GitHub budget; the dialog states any wait truthfully. Tested. |
+
+### Phase E increment: T10.1 acceptance criteria
+
+Why T10.1: the MVP was complete and green, so no repair came first. T10.1 delivers the product's core promise (evidence from real work, not only typed entries), needs no credentials or owner decision (`GITHUB_TOKEN` is optional), reuses the existing ingestion → evidence → review pipeline, and was already the recommended first integration (memory.md open question 2). T10.4 (server persistence) still needs the database decision (open question 7); T10.2 (GitHub OAuth) depends on T10.1; T10.5 needs only the owner's Google client; AI drafting (T10.7) and publishing (T10.9) are higher risk and have harder prerequisites.
+
+| ID | Criterion (observable) | Status |
+| --- | --- | --- |
+| T10.1-a | Sources → GitHub shows "Not set up" and an "Import repositories" button; after an import it shows "Public import" (never "Connected") and "@login", with the statement that Updater can't confirm the account is the user's. | Verified: component test, E2E |
+| T10.1-b | Entering a username lists that account's public, owned, non-fork repositories through `/api/github/repositories`. The browser never calls GitHub; the token never leaves the server. Invalid usernames are refused before any request. | Verified: unit tests (URL, headers, token only on the server request, no token in results), component test, E2E (400 from the real route) |
+| T10.1-c | Nothing is imported until the user selects repositories; only selected ones are imported. Each becomes a source item with `source_reported` evidence (only reported fields) and template proposals (project, plus a skill per new language). | Verified: unit and component tests, E2E (import → approve → Portfolio) |
+| T10.1-d | A later check refreshes imported repositories without duplicating items, evidence, or proposals; renamed repositories update in place. | Verified: unit test |
+| T10.1-e | Rate limits (primary and secondary) produce a readable error with the time requests may resume; the remaining budget is shown after a listing. | Verified: unit tests, component test |
+| T10.1-f | Other failures (unknown account, rejected token, GitHub errors, malformed response, timeout, unreachable, signed out) show a readable error and import nothing. On an existing source, GitHub-side failures are recorded in `lastSync` and set "Needs attention" until the next successful import; data stays. | Verified: unit tests, component tests, E2E |
+| T10.1-g | Every response is schema-validated in the browser and every item again by ingestion; unsafe URLs and non-GitHub hosts are rejected. | Verified: unit tests |
+| T10.1-h | "Remove GitHub data" states what is lost, offers keep/remove for approved content, and leaves the workspace valid. | Verified: unit and component tests |
+| T10.1-i | The route requires a session (401 otherwise), sends `no-store`, and stores nothing on the server. | Verified: E2E against `next start` |
+| T10.1-j | One real import from `api.github.com` succeeds end to end. | **Not verified (blocked):** in this container the route reached GitHub through the egress proxy, which answered 403 for `/users/{name}/repos` ("sessions are bound to their configured repositories"); the route reported `provider_error` (HTTP 502) truthfully. Normalization was checked against a real recorded repository response instead. |
 
 ## Next recommended task
 
-**Owner review of Phase D**, then the **T10.5 follow-up:** the owner configures a Google OAuth client (README → "Google sign-in") and confirms one real sign-in, including that sign-out sticks; then T10.5 can be marked Done. This matters more after Phase D, because the session-cookie fix (D-032) changes how the proxy handles cookies and only a real Google callback can confirm the cookie is still set on sign-in.
+**Owner review of Phase E**, including **T10.1-j**: run `npm run dev` (or `npm run start`) on a machine with normal internet access, import a few of your own repositories from Sources → GitHub, and approve one. Then T10.1 can be marked Done. The T10.5 follow-up (one real Google sign-in) is still open as well.
 
-Then, in Phase E: **T10.1** (GitHub public repository import, the recommended first real integration, memory.md open question 2), or **T10.4** (server persistence; needs the database decision in memory.md open question 7).
+After that: **T10.3** (merged pull requests and contributions as evidence) builds directly on T10.1's route and contract and needs no new credentials; or **T10.4** (server persistence) once the database decision in memory.md open question 7 is made.

@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Version | 0.1.0 |
-| Last updated | 2026-10-29 |
+| Last updated | 2026-10-31 |
 | Scope | The interface of the **Updater application** itself. The portfolio preview and resume preview are documents rendered *inside* Updater. This is not a spec for a separate personal website. |
 | Implementation status | Phase B implemented §2–§5 and Settings → Appearance. Phase C implemented §6–§13. Where the implementation differs from the original text, the section has an *As implemented* note. See [`tracker.md`](./tracker.md). |
 | Related | [`PRD.md`](./PRD.md) · [`architecture.md`](./architecture.md) · [`rules.md`](./rules.md) |
@@ -201,7 +201,7 @@ Shown at `/onboarding` when the workspace has no profile and onboarding is not c
    - **Explore with demo data.** States: "Loads fictional sample data, labeled Demo everywhere. You can remove it in Settings."
    - **Skip for now.**
 
-   Under them, a "Planned integrations" note lists GitHub and blog feeds as not yet available, with the permissions they will request.
+   Under them, a "More sources" note says GitHub public repositories can be imported from Sources (read-only, no GitHub sign-in) and lists blog feeds as planned, with the data they will read.
 
 Completion leads to Overview. Setup progress ("Profile added") is never shown as integration status ("Connected").
 
@@ -249,17 +249,25 @@ Provider list (one panel per provider, divided rows, not nested cards). Each row
 
 | Status (internal) | Badge label | Tone | Used by in MVP |
 | --- | --- | --- | --- |
-| `connected` | "Connected" (external) / "Local" (Manual entries) | success | Manual entries → **Local** |
-| `not_connected` | Not connected | neutral | none |
-| `needs_attention` | Needs attention | warning | none |
+| `connected` | "Connected" (authorized external) / "Local" (Manual entries) / "Public import" (GitHub) | success | Manual entries → **Local**; GitHub after an import → **Public import** |
+| `not_connected` | Not connected / "Not set up" (GitHub) | neutral | GitHub before its first import → **Not set up** |
+| `needs_attention` | Needs attention | warning | GitHub after a failed or rate-limited check |
 | `syncing` | Syncing | info | none |
 | `unavailable` | Unavailable | neutral | none |
-| `planned` | Planned | neutral (dashed border) | GitHub, Blog feeds (RSS/Atom) |
+| `planned` | Planned | neutral (dashed border) | Blog feeds (RSS/Atom) |
 | `demo` | Demo data | demo | Demo workspace |
 
 - **Manual entries** has an "Add entry" button opening a dialog with: kind (project, article, contribution, achievement), title, URL (optional), date (optional), and description, which becomes your statement. Help text: "This is recorded as a user-supplied statement, not externally verified."
 - **Demo workspace** has a "Load demo data" button (or "Remove demo data", with confirmation).
-- **Planned** providers have no connect button. They show "Not available yet" and the future flow, for example: "You'll sign in with GitHub and grant read-only access to public repositories."
+- **Planned** providers have no connect button. They show "Not available yet" and the future flow, for example: "You'll paste your feed URL."
+
+- **GitHub (T10.1)** has "Import repositories" (primary) until something is imported, then "Check for updates" (secondary) and "Remove GitHub data" (confirmation with item counts and a keep/remove choice for approved content, "Keep" selected first). The import dialog:
+  - Asks for a **GitHub username** (required; inline error for invalid names; hint: "A user or organization. Updater can't confirm the account is yours, so import only your own work."), then **Find repositories** (loading state).
+  - Lists the public repositories found as checkboxes (name; description · language · Archived · last pushed). **Nothing is pre-selected.** Already-imported repositories are checked, disabled, and marked "Already imported; will be refreshed". "Select all new" and "Clear selection" sit above the list, which scrolls inside the dialog.
+  - States the counts ("Found N public repositories owned by @login"), forks left out, truncation at 300, and "GitHub requests left for this server: R of L, resets at HH:MM".
+  - The primary action names the count ("Import 2 repositories"; "Refresh imported repositories" when nothing new is chosen) and is disabled while nothing can be imported.
+  - Errors appear in an error alert titled "Nothing was imported"; a rate limit says when to try again. "Check for updates" checks the stored account as soon as the dialog opens and offers "Try again" after a failure.
+  - Below the panel header: "Importing public data for @login. Updater can't confirm this account is yours." plus the last import time and outcome, or a warning alert for a failed or rate-limited check ("Previously imported repositories are unchanged").
 
 *As implemented:* the demo provider reads **"Not loaded"** (neutral) until loaded, never "Not connected". The kind line reads "Stored in this browser", "Fixture data", "Code host", or "Publishing". Each source item row also lists its evidence statements with verification badges and the status of its proposals, so dismissed items' evidence stays visible here. The manual entry dialog adds "Technologies" for projects and an optional "Portfolio project" for other kinds. The banner reads "Your workspace includes demo data".
 

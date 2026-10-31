@@ -16,6 +16,7 @@ import { useWorkspace } from "@/components/workspace/workspace-provider";
 import { ITEM_KIND_LABELS } from "@/components/review/labels";
 import { LoadDemoButton, RemoveDemoDataButton } from "./demo-data-controls";
 import { ManualEntryDialog } from "./manual-entry-dialog";
+import { GithubImportDialog, GithubSourceStatus, RemoveGithubSourceButton } from "./github-controls";
 
 const KIND_LABELS: Record<ProviderDescriptor["kind"], string> = {
   local: "Stored in this browser",
@@ -35,8 +36,8 @@ export function SourcesView() {
         </Alert>
       ) : null}
       <p className="max-w-prose text-body text-foreground-secondary">
-        No external service is connected in this version. Manual entries work locally; GitHub and blog feeds are
-        planned and have no connect button yet.
+        Manual entries work locally. GitHub imports public repositories when you ask, without signing in to GitHub.
+        Blog feeds are planned and have no connect button yet.
       </p>
       {PROVIDERS.map((provider) => (
         <ProviderPanel key={provider.id} provider={provider} ws={ws} />
@@ -67,6 +68,12 @@ function ProviderPanel({ provider, ws }: { provider: ProviderDescriptor; ws: Wor
         <div className="flex shrink-0 flex-wrap gap-2">
           {provider.id === "manual" ? <ManualEntryDialog /> : null}
           {provider.id === "demo" ? source ? <RemoveDemoDataButton /> : <LoadDemoButton /> : null}
+          {provider.id === "github" ? (
+            <>
+              <GithubImportDialog />
+              <RemoveGithubSourceButton />
+            </>
+          ) : null}
         </div>
       </div>
 
@@ -103,6 +110,7 @@ function ProviderPanel({ provider, ws }: { provider: ProviderDescriptor; ws: Wor
         </div>
       </div>
 
+      {provider.id === "github" ? <GithubSourceStatus /> : null}
       {provider.availability !== "planned" ? <SourceItems provider={provider} items={items} ws={ws} /> : null}
     </section>
   );
@@ -117,7 +125,9 @@ function SourceItems({ provider, items, ws }: { provider: ProviderDescriptor; it
       <p className="border-t border-border px-4 py-3 text-support text-muted sm:px-5">
         {provider.id === "manual"
           ? "No entries yet. Use “Add entry” to record a project, article, contribution, or achievement."
-          : "Not loaded. Nothing from this source is in your workspace."}
+          : provider.id === "github"
+            ? "Nothing imported. Use “Import repositories” to choose public repositories."
+            : "Not loaded. Nothing from this source is in your workspace."}
       </p>
     );
   }

@@ -32,8 +32,17 @@ describe("provider registry (T4.1)", () => {
 
   it("rejects a stored source whose provider can't produce its status", () => {
     const ws = demoWorkspace();
-    const tampered = { ...ws, sources: ws.sources.map((source) => ({ ...source, providerId: "github", status: "connected" })) };
-    expect(workspaceSchema.safeParse(tampered).success).toBe(false);
+    const as = (providerId: string, status: string) => ({
+      ...ws,
+      sources: ws.sources.map((source) => ({ ...source, providerId, status })),
+    });
+    expect(workspaceSchema.safeParse(as("rss", "connected")).success).toBe(false);
+    // GitHub (T10.1) records only the outcome of an import: never "syncing", "demo", or "planned".
+    for (const status of ["syncing", "demo", "planned", "unavailable", "not_connected"]) {
+      expect(workspaceSchema.safeParse(as("github", status)).success).toBe(false);
+    }
+    expect(workspaceSchema.safeParse(as("github", "connected")).success).toBe(true);
+    expect(workspaceSchema.safeParse(as("github", "needs_attention")).success).toBe(true);
   });
 });
 
