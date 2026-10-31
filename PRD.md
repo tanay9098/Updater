@@ -7,8 +7,8 @@
 | Product | Updater — developer portfolio auto-updater |
 | Purpose | Defines what Updater must do, for whom, and how the MVP is judged usable. It is the product source of truth for humans and coding agents. |
 | Version | 0.1.0 (initial specification) |
-| Current phase | Phase C — Core functionality complete, awaiting owner review (see [`tracker.md`](./tracker.md)) |
-| Last updated | 2026-10-29 |
+| Current phase | Phase E — next increment: GitHub public repository import (T10.1), see [`tracker.md`](./tracker.md) |
+| Last updated | 2026-10-31 |
 | Status | Draft, pending owner review |
 
 Related documents:
@@ -117,7 +117,7 @@ Each journey lists the steps, the expected system behavior, and the observable o
 1. **Open Updater.** After signing in with Google (compulsory, FR-AUTH), a user with an empty workspace lands on the Overview, whose only recommended action is "Get started", which opens onboarding (`/onboarding`). There is no automatic redirect. The app never shows a populated dashboard to a first-time user unless they chose demo data.
 2. **Understand the product.** One short screen explains: Updater collects evidence, proposes updates, the user reviews them, and nothing is published automatically. It states that data is stored only in this browser in the MVP.
 3. **Set up a basic profile.** The user enters a name (required) and headline (optional). Other profile fields are deferred to the portfolio editor. Validation errors appear beside the field (FR-PROF-01, FR-ERR-01).
-4. **Choose a source or continue with demo data.** Three options: add evidence manually; load the clearly labeled demo workspace; skip for now. Planned integrations (GitHub, blogs) are listed as planned, not as connectable (FR-SRC-01).
+4. **Choose a source or continue with demo data.** Three options: add evidence manually; load the clearly labeled demo workspace; skip for now. The step also says GitHub public repositories can be imported from Sources, and lists blog feeds as planned, not connectable (FR-SRC-01).
 5. **View the dashboard.** The user reaches the Overview, which shows profile completeness, sources and their honest states, pending review items, and one recommended next action (FR-DASH-01).
 
 *Observable outcome:* after reloading, the profile and the user's choice are still present (FR-DATA-01), and demo content carries a visible "Demo data" label everywhere it appears (FR-SRC-03).
@@ -130,11 +130,12 @@ Each journey lists the steps, the expected system behavior, and the observable o
 4. **Connect.** The user connects only through a genuinely supported flow. In the MVP:
    - **Manual entries:** always available locally. The user adds a source item (project, article, contribution, achievement) with an optional URL, and Updater creates evidence marked "User-supplied".
    - **Demo workspace:** loads labeled fixture data. It is never described as connected to a real account.
-   - **GitHub, blogs:** shown as **Planned**, with setup notes describing the future flow. There is no connect button that pretends to work.
+   - **GitHub (public import, T10.1):** the user enters a GitHub username. Updater's server reads that account's public repositories through GitHub's public API (no GitHub sign-in), the user chooses which to import, and each becomes source-reported evidence with a proposal. It is labeled **"Public import"**, never "Connected", and states that Updater can't confirm the account is the user's.
+   - **Blogs:** shown as **Planned**, with setup notes describing the future flow. There is no connect button that pretends to work.
 5. **Review retrieved items.** Items from a source are listed under it with title, kind, date, and URL.
 6. **Understand synchronization status and failures.** Where a provider supports syncing, the last attempt time and result (succeeded, failed with reason, rate-limited) are shown. Providers that do not sync say "Not synchronized: entries are added manually."
 
-*Observable outcome:* no provider ever displays "Connected" unless a connection exists. For the MVP, only Manual entries can be in a usable state, and it is described as local.
+*Observable outcome:* no provider ever displays "Connected" unless an authorized connection exists, and none does yet. Manual entries are described as local, and GitHub as a public import.
 
 ### Journey C — Reviewing a proposed update
 
@@ -184,7 +185,7 @@ Priorities: **P0** is required for the MVP, **P1** is expected in the MVP if fea
 
 | ID | Priority | Requirement | Acceptance criteria |
 | --- | --- | --- | --- |
-| FR-SRC-01 | P0 | The Sources page lists every known provider with an honest state. | Each provider shows one of: Connected, Not connected, Needs attention, Syncing, Unavailable, Planned, Demo data. GitHub and blog providers show Planned. No provider shows Connected without a real connection. |
+| FR-SRC-01 | P0 | The Sources page lists every known provider with an honest state. | Each provider shows one of: Connected, Not connected, Needs attention, Syncing, Unavailable, Planned, Demo data. GitHub shows "Not set up", "Public import", or "Needs attention" (T10.1); blog providers show Planned. No provider shows Connected without a real authorized connection. |
 | FR-SRC-02 | P0 | Each provider describes its capabilities, the data it reads, and its permissions before connection. | Provider cards display capability and permission lists sourced from the provider definition. |
 | FR-SRC-03 | P0 | Demo data is labeled wherever it appears. | Every demo source item, evidence item, review item, and derived claim shows a "Demo data" label on Sources, Review Queue, Portfolio, Resumes, and Overview. |
 | FR-SRC-04 | P0 | Users can add manual source items (project, article, contribution, achievement) with title, optional URL, date, and description. | The new item appears under Manual entries. Evidence marked "User-supplied" is created, and a review item is proposed. |
@@ -334,7 +335,7 @@ The MVP includes:
 - A bright/dark theme switcher. Bright mode is the default.
 - An Overview dashboard derived entirely from workspace state.
 - Developer profile editing, through onboarding and the portfolio editor.
-- A Sources page with honest provider states: Manual entries (usable), Demo workspace (labeled), GitHub and blogs (Planned).
+- A Sources page with honest provider states: Manual entries (usable), Demo workspace (labeled), GitHub (public repository import, added in Phase E), and blogs (Planned).
 - Clearly labeled demo data, loaded only on explicit user choice.
 - An evidence-oriented review queue with working edit, approve, dismiss, and restore actions.
 - Portfolio editing and a local preview.
@@ -350,13 +351,14 @@ The MVP includes:
 - FR-EVID-02 / FR-PORT-04: achievements may exist without a project (for example articles), shown under "Other achievements".
 - FR-RES-02: every portfolio project is selectable, because portfolio projects are either approved proposals or written by the user.
 - FR-RES-05: suggestions use keyword overlap plus a small list of role hints (architecture.md §12).
-- FR-SYNC-02/03: no provider synchronizes in the MVP, so every source states "Not synchronized" with the reason.
+- FR-SYNC-02/03: no provider synchronized in the Phase C MVP, so every source stated "Not synchronized" with the reason. Phase E (T10.1): the GitHub import records each check's time and outcome (succeeded, failed with reason, rate-limited with the time it can resume) and offers "Try again". It reads at most 3 pages (300 repositories) per check and never syncs in the background.
+- FR-SRC-05 (Phase E): the GitHub source can be removed with the same confirmation and keep-or-remove choice as the demo workspace. A public import holds no authorization, so there is nothing to revoke on GitHub.
 
 ## 12. Future scope
 
 These remain future work until genuinely implemented and verified:
 
-- GitHub ingestion, starting with read-only public repositories, then OAuth for pull requests and private data.
+- GitHub ingestion beyond public repositories: merged pull requests and contributions (T10.3), then OAuth for verified account ownership and private data (T10.2). Public repository import is implemented (T10.1).
 - Automated and scheduled synchronization, with background jobs.
 - Blog integrations: RSS/Atom feeds, DEV, Hashnode, Medium.
 - Server-side durable storage and multi-device synchronization.

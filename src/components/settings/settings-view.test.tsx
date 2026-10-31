@@ -33,7 +33,9 @@ describe("SettingsView (T8.1–T8.6)", () => {
     expect(privacy).toHaveTextContent("stored in this browser's local storage, under your account");
     expect(privacy).toHaveTextContent("no analytics");
     const integrations = screen.getByRole("region", { name: "Integrations" });
-    expect(within(integrations).getAllByText("Planned")).toHaveLength(2);
+    expect(within(integrations).getAllByText("Planned")).toHaveLength(1);
+    expect(within(integrations).getByText("Not set up")).toBeInTheDocument();
+    expect(privacy).toHaveTextContent("sends only the username you enter");
     expect(within(integrations).getByText("Demo data")).toBeInTheDocument();
     expect(within(integrations).getByText("Local")).toBeInTheDocument();
   });

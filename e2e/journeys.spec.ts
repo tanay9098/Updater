@@ -34,7 +34,7 @@ test.describe("Journey A: getting started", () => {
     await page.getByRole("textbox", { name: "Headline" }).fill("Frontend engineer");
     await page.getByRole("button", { name: "Save profile" }).click();
     await expect(page.getByText("Step 3 of 3")).toBeVisible();
-    await expect(page.getByText(/Planned integrations/)).toBeVisible();
+    await expect(page.getByText("More sources")).toBeVisible();
     await expect(page.getByRole("button", { name: /connect/i })).toHaveCount(0);
     await page.getByRole("radio", { name: "Skip for now" }).check();
     await page.getByRole("button", { name: "Finish setup" }).click();
@@ -50,13 +50,13 @@ test.describe("Journey A: getting started", () => {
 });
 
 test.describe("Journey B: sources", () => {
-  test("planned integrations are never presented as connected", async ({ page }) => {
+  test("no integration is presented as connected", async ({ page }) => {
     await openPage(page, "/sources");
-    for (const name of ["GitHub", "Blog feeds (RSS/Atom)"]) {
-      const card = page.getByRole("region", { name });
-      await expect(card.getByText("Planned", { exact: true })).toBeVisible();
-      await expect(card.getByRole("button")).toHaveCount(0);
-    }
+    const blog = page.getByRole("region", { name: "Blog feeds (RSS/Atom)" });
+    await expect(blog.getByText("Planned", { exact: true })).toBeVisible();
+    await expect(blog.getByRole("button")).toHaveCount(0);
+    // GitHub is a public import (T10.1), set up only when the user imports.
+    await expect(page.getByRole("region", { name: "GitHub" }).getByText("Not set up", { exact: true })).toBeVisible();
     await expect(page.getByRole("main")).not.toContainText(/\bConnected\b/);
     await expect(page.getByRole("region", { name: "Demo workspace" }).getByText("Not loaded", { exact: true })).toBeVisible();
   });

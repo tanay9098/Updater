@@ -3,8 +3,8 @@
 | Field | Value |
 | --- | --- |
 | Version | 0.1.0 |
-| Last updated | 2026-10-29 |
-| Phase | Phase C — Core functionality complete (awaiting owner review). The local MVP described below is implemented; items tagged [Future] are not. |
+| Last updated | 2026-10-31 |
+| Phase | Phase E — GitHub public repository import (T10.1) added to the local MVP. Items tagged [Future] are not implemented. |
 | Related | [`PRD.md`](./PRD.md) · [`design.md`](./design.md) · [`memory.md`](./memory.md) · [`rules.md`](./rules.md) · [`tracker.md`](./tracker.md) |
 
 > **Implementation status convention.** Each component, module, and interface below is tagged:
@@ -15,7 +15,7 @@
 
 ## 1. Architecture overview
 
-Updater's MVP is a **single Next.js application that runs entirely in the user's browser** for data handling. Pages are rendered by Next.js. All workspace data (profile, sources, evidence, review items, portfolio, resumes) lives in a versioned document in browser storage. There is no backend database, no external API call, and no AI provider in the MVP. This is deliberate (see D-003 and D-004 in §17). It keeps the app usable without credentials and makes every displayed integration state truthful.
+Updater's MVP is a **single Next.js application that runs entirely in the user's browser** for data handling. Pages are rendered by Next.js. All workspace data (profile, sources, evidence, review items, portfolio, resumes) lives in a versioned document in browser storage. There is no backend database and no AI provider. The one external data call is the GitHub public repository import (T10.1, §9.1), which Updater's server makes on the user's request; the workspace itself never leaves the browser. This is deliberate (see D-003 and D-004 in §17). It keeps the app usable without credentials and makes every displayed integration state truthful.
 
 **Compulsory Google sign-in [Implemented] (T10.5, D-029–D-031).** Auth.js handles Google sign-in, `src/proxy.ts` requires a session on every request, and the browser opens only the workspace stored under the signed-in account's own `localStorage` key. There is no mode without an account: if `AUTH_SECRET`, `AUTH_GOOGLE_ID`, or `AUTH_GOOGLE_SECRET` is unset, the app is blocked at `/sign-in`. Workspace data still never reaches the server (§10, §11).
 
@@ -30,10 +30,11 @@ Principal components:
 | Domain logic (`src/features/*`, pure modules) | Review transitions, claim provenance, proposal generation, completeness, tailoring | [Implemented] |
 | Validation (`src/lib/validation`) | Runtime schemas for persisted, imported, and user-entered data | [Implemented] |
 | Storage adapter (`src/lib/data`) | Load, validate, migrate, and save the workspace document | [Implemented] |
-| Provider registry (`src/lib/providers`) | Source provider definitions: Manual entries, Demo workspace, plus Planned descriptors | [Implemented] (descriptors only; no provider performs network I/O) |
+| Provider registry (`src/lib/providers`) | Source provider definitions: Manual entries, Demo workspace, GitHub (public import), and the Planned blog descriptor | [Implemented] |
+| GitHub public import (`src/lib/providers/github`, `src/app/api/github/repositories`, `src/features/sources/github.ts`) | Server lists an account's public repositories; the browser imports the ones the user selects (§9.1) | [Implemented] (T10.1) |
 | Authentication (`src/auth.ts`, `src/proxy.ts`, `src/lib/auth`, `src/components/account`) | Compulsory Google sign-in, per-request sign-in gate, account status, account-scoped workspace keys | [Implemented] (§10) |
-| Route handlers / server APIs | `/api/auth/*` (Auth.js) and `/api/account` [Implemented]; server-side ingestion and persistence | [Future] beyond auth |
-| GitHub and blog providers | Real ingestion | [Future] |
+| Route handlers / server APIs | `/api/auth/*` (Auth.js), `/api/account`, `/api/github/repositories` [Implemented]; server-side persistence | [Future] beyond these |
+| GitHub pull requests, OAuth, and blog providers | Further ingestion | [Future] (T10.2, T10.3, T10.8) |
 | Durable database | Multi-device persistence | [Future] |
 | AI drafting provider | Optional evidence-grounded wording drafts | [Future] |
 | Portfolio publisher | Real public deployment | [Future] |
@@ -57,7 +58,7 @@ flowchart LR
   subgraph Future["Future — not implemented"]
     direction TB
     API["Route handlers / server actions"]
-    GH["GitHub provider"]
+    GH["GitHub OAuth and pull requests<br/>(public repository import is implemented, §9.1)"]
     Blog["RSS / DEV / Hashnode providers"]
     DB[("Durable database")]
     AI["AI drafting adapter"]
@@ -102,7 +103,7 @@ Exact versions are pinned in `package.json` and `package-lock.json`. Those files
 | Domain types | `src/types` | TypeScript types (inferred from schemas) shared across layers | Contain logic |
 | Validation | `src/lib/validation` | Zod schemas for persisted data, imports, and form input. URL and text helpers. The `Result`/`AppError` types (`result.ts`), `validate()` and `toFieldErrors()` (`field-errors.ts`), `safeExternalUrl()` (`url.ts`). | Depend on UI |
 | Persistence | `src/lib/data` | `WorkspaceStorage` adapter: load, validate, migrate, save. Demo fixtures. | Store secrets |
-| Source-provider adapters | `src/lib/providers` | Provider definitions, capability metadata, and (for real providers) fetch and normalize | Write to storage directly. Providers return data, and the store records it. |
+| Source-provider adapters | `src/lib/providers` (registry), `src/lib/providers/github` (server-side GitHub client and the browser–server response contract) | Provider definitions, capability metadata, and (for real providers) fetch and normalize | Write to storage directly. Providers return data, and the store records it. |
 | Authentication and authorization | `src/auth.ts` (Auth.js setup, server-only), `src/proxy.ts` (gate), `src/lib/auth` (pure config, access rules, account schema), `src/app/api/{auth,account}`, `src/components/account` | Decide who may open the app and which workspace scope the browser uses (§10) | Read or write workspace data on the server; decide access in components |
 | AI-provider adapters | none yet | [Future] optional `DraftingProvider` (§12) | |
 | Publishing adapters | none yet | [Future] `Publisher` (§13) | |
@@ -337,7 +338,7 @@ interface WorkspaceDocumentV1 {
 The schemas in `src/lib/validation/domain.ts` are authoritative. They differ from §5.1–§5.12 as follows:
 
 - **Strict objects (D-021).** Every persisted object rejects unknown keys, so a token-like field can never be stored.
-- **Cross-reference checks.** `workspaceSchema` rejects a document whose provenance chain is broken: a source item with an unknown source, evidence with an unknown source item, a review item or claim with unknown evidence, duplicate `(sourceId, externalId)`, or a source whose provider can't produce its status (`providerCanProduce`: manual → `connected`, demo → `demo`, planned → nothing).
+- **Cross-reference checks.** `workspaceSchema` rejects a document whose provenance chain is broken: a source item with an unknown source, evidence with an unknown source item, a review item or claim with unknown evidence, duplicate `(sourceId, externalId)`, or a source whose provider can't produce its status (`providerCanProduce`: manual → `connected`, demo → `demo`, github → `connected` or `needs_attention`, planned → nothing).
 - **Soft references** (resume selections, project claim lists, claim → project, pending review targets) are pruned on load and import by `pruneReferences`, with a notice shown to the user.
 - **`ReviewItem`** adds `rationale` (the "Why suggested" sentence), `conflictAcknowledgedAt`, and `resultingSkillId`. For `add_skill`, `proposedText` is the skill name and edits are limited to 40 characters.
 - **`PortfolioProject`** has no `order` field; array order is the display order. Approving a project creates a summary claim referenced by `summaryClaimId`; `summary` holds the user's own text for projects added by hand (D-023).
@@ -431,9 +432,9 @@ sequenceDiagram
 
 | Status | Meaning | Who can produce it |
 | --- | --- | --- |
-| `connected` | A real, working connection or local source exists | Manual entries (local), future real providers after successful authorization |
-| `not_connected` | Available provider, not set up | Real providers |
-| `needs_attention` | Connection exists but failed (expired authorization, repeated sync errors) | Future real providers |
+| `connected` | A real, working connection or local source exists | Manual entries (local, shown "Local"); GitHub after a successful public import (shown "Public import", never "Connected"); future providers after successful authorization |
+| `not_connected` | Available provider, not set up | GitHub before its first import (shown "Not set up"; derived, never stored) |
+| `needs_attention` | Connection exists but failed (expired authorization, repeated sync errors) | GitHub after a failed or rate-limited check; cleared by the next successful import |
 | `syncing` | A sync is in progress | Future real providers |
 | `unavailable` | Implemented, but cannot work in this environment (for example missing server configuration) | Future real providers |
 | `planned` | Not implemented | Planned descriptors (GitHub, blogs) |
@@ -455,6 +456,7 @@ The MVP keeps everything local, so it exposes **module contracts** rather than H
 | --- | --- |
 | Profile | `updateProfile(ws, input, now)`, `updateProfileLinks(ws, links, now)`, `profileChecklist(ws)` |
 | Sources | `addManualItem(ws, input, now): Result<{ workspace, itemId, reviewItemId }>`; `loadDemoWorkspace(ws, now)`; `removeDemoData(ws, { keepApprovedContent }, now)`; `summarizeDemoData(ws)` |
+| GitHub (T10.1) | Server: `fetchPublicRepositories(username, { fetch, token })` → listing or `GithubError` (`invalid_username`, `not_found`, `rate_limited` + `resetAt`, `token_rejected`, `provider_error`, `unreachable`); `GET /api/github/repositories?username=` → 200/400/404/429/502/504 with `githubResponseSchema`. Browser: `requestGithubRepositories(username)`; `importGithubRepositories(ws, { login, repositories, selectedExternalIds }, now)`; `recordGithubFailure(ws, { outcome, message }, now)`; `removeGithubSource(ws, { keepApprovedContent }, now)`; `summarizeGithubData(ws)` |
 | Ingestion | `ingestItems(ws, sourceId, rawItems, now): Result<{ ws, rejected: Rejection[] }>` |
 | Evidence | `evidenceForClaim(ws, claimId)`, `claimsForEvidence(ws, evidenceId)` (selectors) |
 | Review | `editReviewItem`, `dismissReviewItem`, `restoreReviewItem`, `revertReviewEdit` → `Result<Workspace>`; `approveReviewItem(ws, id, { acknowledgeConflict }, now)` → `Result<{ workspace, claimId?, projectId?, skillId? }>`; `nextStatus`, `canPerform` |
@@ -523,7 +525,34 @@ interface SourceProvider extends ProviderDescriptor {
 - **Revocation** goes through `disconnect`, which revokes tokens and asks whether derived evidence should be kept or removed.
 - **No simulated authorization.** A Planned descriptor has no `connect`, and the UI renders no connect button for it.
 
-MVP providers: `manual` (available, local), `demo` (fixtures), and `github` and `rss` (planned descriptors only).
+Providers: `manual` (available, local), `demo` (fixtures), `github` (available: public repository import, §9.1), and `rss` (planned descriptor only).
+
+### 9.1 GitHub public repository import [Implemented] (T10.1, D-035, D-036)
+
+```mermaid
+sequenceDiagram
+  actor U as User
+  participant B as Browser (Sources dialog)
+  participant R as /api/github/repositories
+  participant G as api.github.com
+  U->>B: Enter username, "Find repositories"
+  B->>R: GET ?username= (session cookie)
+  R->>R: proxy + auth() check; validate username
+  R->>G: GET /users/{u}/repos?type=owner&sort=pushed (≤3 pages, optional GITHUB_TOKEN)
+  G-->>R: repositories + rate-limit headers
+  R-->>B: listing (normalized raw items) or error
+  B->>B: validate with githubResponseSchema
+  U->>B: Choose repositories, "Import"
+  B->>B: importGithubRepositories → ingestItems → evidence + proposals → save
+```
+
+- **Not an authorized connection.** The import reads public data for any username; Updater can't confirm the account belongs to the user, and says so. The status label is "Public import", never "Connected". OAuth (T10.2) would add verified ownership.
+- **Server only.** The browser calls Updater's route, never GitHub, so the optional `GITHUB_TOKEN` stays on the server. The route checks the session itself as well as the proxy, answers `Cache-Control: private, no-store`, and stores nothing.
+- **Request safety.** The username must match GitHub's rules (1–39 letters, digits, single hyphens), so the path and query on the fixed `https://api.github.com` origin can't be altered. Redirects are refused, each request times out after 10 s, the `Link` header is only checked for `rel="next"` and its URLs are never followed, and repository URLs must be `https://github.com/…`.
+- **What is read.** Public repositories the account owns (`type=owner`), most recently pushed first, at most 3 pages × 100. Forks and anything marked private are left out and counted. Each repository becomes a raw item: `externalId` `repo:<numeric id>` (survives renames), title, URL, `occurredAt` = creation date, metadata `owner`, `description`, `language`, `topics`, `license` (SPDX id, not `NOASSERTION`), `archived`. Nothing GitHub didn't report is filled in. `pushed_at` is shown in the dialog only, so evidence doesn't go stale on every push.
+- **User choice.** Nothing is imported until the user selects repositories. Already-imported repositories in a listing are refreshed (D-024: snapshot only). One GitHub account per workspace; another account needs the source removed first.
+- **Failures and rate limits.** A primary limit (403/429 with `x-ratelimit-remaining: 0`) or secondary limit (`retry-after`) returns `rate_limited` with the reset time; the dialog shows when to try again. On an existing source, GitHub-side failures are recorded in `Source.lastSync` and set `needs_attention`; a session that ended, Updater's server being down, or an invalid username are shown but not recorded. The remaining request budget is shown after each listing.
+- **Shared limit.** Without `GITHUB_TOKEN`, GitHub allows 60 requests per hour per server IP address, shared by every user of the deployment (one check uses 1–3 requests). A token raises it to 5,000 per hour. No per-user throttling exists yet.
 
 ## 10. Authentication and security
 
@@ -536,10 +565,10 @@ MVP providers: `manual` (available, local), `demo` (fixtures), and `github` and 
 | OAuth | Google authorization-code flow run by Auth.js: PKCE and `state` checked on the callback (`/api/auth/callback/google`), CSRF token on sign-in/sign-out. No Google access or refresh token is kept. | GitHub OAuth (T10.2) with server-side tokens |
 | Sessions | Encrypted JWT in an HTTP-only, `SameSite=Lax` cookie (`Secure` on HTTPS) managed by Auth.js. The avatar URL is dropped from the token. Sign-out clears the cookie, then the browser loads `/sign-in` with a full navigation so no workspace stays in memory. The proxy reads the session but never re-issues it (`withoutSessionRefresh`, D-032): Auth.js would otherwise re-set the cookie on every proxied response, including background prefetches, and a late response could put back a session that was just signed out or replaced. Deletions of an unreadable cookie still pass. So a session lasts Auth.js's `maxAge` (30 days) from sign-in, without sliding renewal. | Server-side session revocation (needs a database, T10.4) |
 | Response headers | `next.config.ts` sends `Content-Security-Policy: frame-ancestors 'none'`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, and a restrictive `Permissions-Policy` on every route; `X-Powered-By` is off (D-034). | A script-src CSP; Next.js's inline scripts need a per-request nonce, which makes every page dynamic (memory.md open question 9) |
-| Server-only credentials | `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` as plain env vars, read only in `src/auth.ts`, never `NEXT_PUBLIC_*` | `GITHUB_CLIENT_SECRET` |
+| Server-only credentials | `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` as plain env vars, read only in `src/auth.ts`; optional `GITHUB_TOKEN`, read only in `src/app/api/github/repositories/route.ts` (§9.1); never `NEXT_PUBLIC_*` | `GITHUB_CLIENT_SECRET` |
 | Environment variables | `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` are required to use the app (tests, lint, and build need none). Read at server start (restart after changes); the sign-in page lists missing names only in development. | Validated at startup with a schema |
 | Input validation | Zod for forms, imports, persisted data, and the `/api/account` response. `safeCallbackPath` accepts only same-site paths after sign-in. | Same schemas re-used server-side |
-| External URLs | `safeExternalUrl()`: parse with `URL` and allow only `http:`/`https:`. Rendered with `rel="noopener noreferrer"`. | Server-side fetchers add allow-lists and block private address ranges (SSRF) |
+| External URLs | `safeExternalUrl()`: parse with `URL` and allow only `http:`/`https:`. Rendered with `rel="noopener noreferrer"`. The GitHub client requests only the fixed `https://api.github.com` origin with a validated username, refuses redirects, and never follows URLs from responses (§9.1). | Fetchers of user-supplied URLs (RSS, T10.8) add allow-lists and block private address ranges (SSRF) |
 | Untrusted source text | Rendered as React text nodes only. No `dangerouslySetInnerHTML` except the static theme bootstrap script. Markdown is not rendered. Auth.js error codes map to fixed messages. | If rich text is ever rendered, use a vetted sanitizer |
 | Deletion and disconnection | Remove demo data, delete items, reset workspace (with confirmation), JSON export. Reset deletes only the current scope's keys. | Server-side deletion, including provider token revocation |
 | Cryptography | None of our own. Session encryption is Auth.js's. | Platform and library primitives only |
@@ -612,7 +641,7 @@ A publisher would set `PublishingState.status` only from its own confirmed resul
 | Not found | `not_found` | Item missing (deleted elsewhere). Message plus a navigation fallback. |
 | Persistence | `storage_unavailable`, `storage_quota_exceeded`, `storage_corrupt` | Banner: "Changes could not be saved". In-memory state kept. Recovery flow on load. |
 | Import | `import_invalid` | Lists errors. Existing data untouched. |
-| Provider failures [Future] | `provider_error`, `auth_expired`, `rate_limited` | Recorded on `Source.lastSync`. Status `needs_attention`. Retry or reconnect action. |
+| Provider failures [Implemented for GitHub, T10.1] | `invalid_username`, `not_found`, `rate_limited` (+ `resetAt`), `token_rejected`, `provider_error`, `unreachable`; in the browser also `signed_out`, `server_unavailable`, `bad_response` | Shown in the import dialog with "Try again". GitHub-side failures on an existing source are recorded on `Source.lastSync` and set `needs_attention`. |
 | Publishing [Future] | `publish_failed` | Recorded on `PublishingState.lastError` |
 | Unexpected | `unexpected` | Route `error.tsx` boundary with retry |
 
@@ -622,10 +651,10 @@ Logging: development-only `console.warn`/`console.error` with error codes. Works
 
 | Level | Tooling | Scope |
 | --- | --- | --- |
-| Unit | Vitest | Review transitions (every cell of §7.1), claim origin rules, proposal templates (no invented numbers), ingestion validation and de-duplication, URL validation, completeness, tailoring scoring, migrations, storage load/save including corrupt data |
+| Unit | Vitest | Review transitions (every cell of §7.1), claim origin rules, proposal templates (no invented numbers), ingestion validation and de-duplication, URL validation, completeness, tailoring scoring, migrations, storage load/save including corrupt data; the GitHub client with an injected `fetch` (headers, token, username validation, normalization of a recorded real response, paging cap, rate limits, every error mapping) and the GitHub import, failure recording, and removal |
 | Component | Vitest, Testing Library, jsdom | Review item actions, form validation messages, theme toggle state, confirmation dialogs, labeled demo data rendering |
 | Integration | Vitest | Store with real reducer and an in-memory storage adapter: approve → claim appears, edits persist, export → import round trip |
-| End-to-end | Playwright (Chromium), `npm run test:e2e` after `npm run build` | Journeys A–E, sign-in gate and account isolation, theme persistence without flash, reload persistence, keyboard navigation of the shell, no horizontal overflow, export/import/reset, recovery screen. Fails on any browser console error the test didn't declare. |
+| End-to-end | Playwright (Chromium), `npm run test:e2e` after `npm run build` | Journeys A–E (including the GitHub import, with the browser's call to Updater's route stubbed, plus the real route's 401 and 400 answers), sign-in gate and account isolation, theme persistence without flash, reload persistence, keyboard navigation of the shell, no horizontal overflow, export/import/reset, recovery screen. Fails on any browser console error the test didn't declare. |
 | Accessibility | axe-core via `@axe-core/playwright` | WCAG 2.2 A/AA rules on every page in both themes plus a populated resume builder and the sign-in page. axe covers a subset of WCAG; screen-reader behavior is reviewed by hand. |
 | Static | `npm run lint`, `npm run typecheck`, `npm run build` | Run on every change |
 
@@ -633,9 +662,10 @@ Logging: development-only `console.warn`/`console.error` with error codes. Works
 
 - **Local development:** `npm install`, set `AUTH_SECRET`, `AUTH_GOOGLE_ID`, and `AUTH_GOOGLE_SECRET` in `.env.local` (README → "Google sign-in"), then `npm run dev` (http://localhost:3000). Without them every page redirects to `/sign-in` (D-031). Tests, lint, type check, and build need no variables.
 - **Production build:** `npm run build`, then `npm run start`. It can run on any Node.js host that meets the `engines` field. Data still lives only in each visitor's browser.
-- **Environment variables:** the three sign-in variables above are required to use the app; self-hosting with `npm run start` also needs `AUTH_TRUST_HOST=true` or `AUTH_URL`. `.env.example` documents them and lists reserved, commented-out names for future integrations.
+- **Environment variables:** the three sign-in variables above are required to use the app; self-hosting with `npm run start` also needs `AUTH_TRUST_HOST=true` or `AUTH_URL`. `GITHUB_TOKEN` is optional and only raises GitHub's rate limit for the public import (a token with no scopes is enough). `.env.example` documents them and lists reserved, commented-out names for future integrations.
+- **Network:** the GitHub import needs outbound HTTPS from the server to `api.github.com`. Without it, imports fail with a recorded error and the rest of the app is unaffected.
 - **Future prerequisites:** a registered GitHub OAuth app, a database, a publisher target, and server env var validation.
-- **Known MVP limitations:** single browser and single device. Clearing site data erases the workspace (mitigated by JSON export). No real integrations. No publishing. Print-to-PDF only.
+- **Known MVP limitations:** single browser and single device. Clearing site data erases the workspace (mitigated by JSON export). The only real integration is the read-only GitHub public import. No publishing. Print-to-PDF only.
 
 ## 17. Architectural decisions
 
@@ -677,3 +707,5 @@ Full context and status are kept in [`memory.md`](./memory.md#decision-log), usi
 | D-032 | The proxy never re-issues the session cookie | Keep Auth.js's per-request renewal; disable route prefetching | A late prefetch response re-set an old session after the cookie changed (Phase D) | Fixed 30-day session lifetime, no sliding renewal |
 | D-033 | Committed Playwright suite signs in with real Auth.js cookies minted from a test-only secret | A test or bypass mode in the app; mocking Auth.js | No simulated sign-in in shipped code (rules.md §7.5.2) | `@playwright/test` pinned to the container's browser build; needs `npm run build` first |
 | D-034 | Static security headers in `next.config.ts`; no script-src CSP yet | Nonce-based CSP now | Blocks clickjacking of destructive actions without making pages dynamic | Script injection defence still relies on React text rendering (§10) |
+| D-035 | GitHub public repository import through Updater's own route (`/api/github/repositories`), read-only, optional server `GITHUB_TOKEN`; labeled "Public import" with statuses `connected`/`needs_attention` only | Browser calls GitHub directly (CORS allows it); wait for OAuth (T10.2) | Keeps any token server-side; first real evidence source without credentials; truthful about unverified ownership | Shared 60 requests/hour per server IP without a token; ownership unverified until T10.2 |
+| D-036 | The user selects which repositories to import; forks are excluded; `repo:<id>` external ids; creation date as `occurredAt`; at most 300 repositories per check | Import everything; include forks | User control and a manageable review queue; ids survive renames; stable evidence | Repositories removed upstream stay until the user removes the source |

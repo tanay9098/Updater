@@ -61,6 +61,8 @@ export const ACTIVITY_TYPES = [
   "manual_entry_added",
   "demo_loaded",
   "demo_removed",
+  "github_imported",
+  "github_removed",
   "review_edited",
   "review_edit_reverted",
   "review_approved",
@@ -453,8 +455,8 @@ export const workspaceSchema = z
 
 /**
  * Which statuses each provider can genuinely produce (architecture.md §7.3).
- * Planned providers produce nothing in the MVP, so they cannot have a stored
- * source at all, let alone a connected one.
+ * Planned providers produce nothing, so they cannot have a stored source at
+ * all, let alone a connected one.
  */
 export function providerCanProduce(
   providerId: z.infer<typeof providerIdSchema>,
@@ -466,6 +468,8 @@ export function providerCanProduce(
     case "demo":
       return status === "demo";
     case "github":
+      // A public import that worked, or one whose last check failed (T10.1). Never "syncing": nothing runs in the background.
+      return status === "connected" || status === "needs_attention";
     case "rss":
       return false;
   }

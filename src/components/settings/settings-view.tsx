@@ -61,7 +61,7 @@ export function SettingsView() {
             <Link href="/sources" className="text-link underline underline-offset-4">
               Sources
             </Link>
-            . No external service is connected in this version.
+            . GitHub is a read-only public import, not a connected account.
           </>
         }
       >
@@ -98,6 +98,11 @@ export function SettingsView() {
           <li>Signing out keeps your workspace in this browser for your next sign-in. Reset it below to delete it.</li>
           <li>The workspace doesn&apos;t follow your account to other devices or browsers. Export and import to move it.</li>
           <li>Clearing this site&apos;s data in your browser deletes the workspace. Export a copy to keep a backup.</li>
+          <li>
+            Importing from GitHub sends only the username you enter to Updater&apos;s server, which reads that
+            account&apos;s public repositories from GitHub&apos;s API and returns them to this browser. The server keeps
+            nothing, and no GitHub sign-in or token is involved on your side.
+          </li>
           <li>Demo data is fictional and links only to example.com.</li>
         </ul>
       </Panel>
