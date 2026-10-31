@@ -27,7 +27,7 @@ For small fixes, read at least `rules.md`, the relevant tracker task, and the co
 - Preserve source provenance. Never merge evidence and generated wording.
 - Protect credentials and user data (`rules.md` §7.3). Never put secrets in client code, browser storage, or commits.
 - Clearly distinguish demo data from real integrations. Never simulate a connection, sync, or publication.
-- Run the relevant checks: `npm run lint`, `npm run typecheck`, `npm test` (once configured, T2.7), and `npm run build`.
+- Run the relevant checks: `npm run lint`, `npm run typecheck`, `npm test`, and `npm run build`. For UI, routing, or sign-in changes, also run `npm run test:e2e` after the build (it starts its own `next start` on port 3100 with test-only sign-in settings; stop any other server on that port first).
 - Report actual results. Never claim a check passed without running it. Quote failures.
 - Update `tracker.md` (verified status only), `memory.md` (decisions and state), and any other doc your change affects (`rules.md` §7.7).
 - Explain any deviation from the specification and record it in the relevant document.
@@ -45,7 +45,9 @@ npm install          # install dependencies
 npm run dev          # development server at http://localhost:3000
 npm run lint         # ESLint
 npm run typecheck    # next typegen + tsc --noEmit
+npm test             # unit, component, and integration tests (Vitest)
 npm run build        # production build
+npm run test:e2e     # Playwright end-to-end and axe checks against the build (run build first)
 npm run start        # serve the production build
 ```
 

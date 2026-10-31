@@ -1,7 +1,12 @@
 import Link from "next/link";
 
-/** Product identity: mark + name, linking to Overview. */
-export function ProductMark({ onNavigate }: { onNavigate?: () => void }) {
+/**
+ * Product identity: mark + name, linking to Overview. `compact` keeps only
+ * the mark visible below `sm` (the name stays as screen-reader text), so the
+ * top bar fits at 320 px with the demo indicator, theme toggle, and account
+ * button (design.md §4).
+ */
+export function ProductMark({ onNavigate, compact = false }: { onNavigate?: () => void; compact?: boolean }) {
   return (
     <Link
       href="/"
@@ -18,7 +23,7 @@ export function ProductMark({ onNavigate }: { onNavigate?: () => void }) {
           strokeLinecap="round"
         />
       </svg>
-      Updater
+      <span className={compact ? "max-sm:sr-only" : undefined}>Updater</span>
     </Link>
   );
 }

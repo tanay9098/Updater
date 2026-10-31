@@ -114,7 +114,7 @@ Each journey lists the steps, the expected system behavior, and the observable o
 
 ### Journey A — Getting started
 
-1. **Open Updater.** With an empty workspace, the user lands on the onboarding screen (`/onboarding`). The app never shows a populated dashboard to a first-time user unless they chose demo data.
+1. **Open Updater.** After signing in with Google (compulsory, FR-AUTH), a user with an empty workspace lands on the Overview, whose only recommended action is "Get started", which opens onboarding (`/onboarding`). There is no automatic redirect. The app never shows a populated dashboard to a first-time user unless they chose demo data.
 2. **Understand the product.** One short screen explains: Updater collects evidence, proposes updates, the user reviews them, and nothing is published automatically. It states that data is stored only in this browser in the MVP.
 3. **Set up a basic profile.** The user enters a name (required) and headline (optional). Other profile fields are deferred to the portfolio editor. Validation errors appear beside the field (FR-PROF-01, FR-ERR-01).
 4. **Choose a source or continue with demo data.** Three options: add evidence manually; load the clearly labeled demo workspace; skip for now. Planned integrations (GitHub, blogs) are listed as planned, not as connectable (FR-SRC-01).
@@ -281,7 +281,7 @@ Priorities: **P0** is required for the MVP, **P1** is expected in the MVP if fea
 
 | ID | Priority | Requirement | Acceptance criteria |
 | --- | --- | --- | --- |
-| FR-AUTH-01 | P2 | Every page requires a Google sign-in. The first sign-in creates the account. | Signed-out requests to pages redirect to `/sign-in` and back after signing in; API requests get 401. There is no way to use the app without an account. |
+| FR-AUTH-01 | P2 | Every page requires a Google sign-in. The first sign-in creates the account. | Signed-out requests to pages redirect to `/sign-in` and back after signing in; API requests get 401. There is no way to use the app without an account. Signing out ends the session: no response that was already in flight can restore it. |
 | FR-AUTH-02 | P2 | Each account's portfolio and resumes are built only from that account's workspace. | On one browser, a second account sees none of the first account's profile, projects, claims, or resumes, and the first account's data is intact when it signs back in. No workspace opens while the account is unknown or signed out. |
 | FR-AUTH-03 | P2 | A server without sign-in configuration blocks the app instead of running without accounts. | With any of `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` unset, every page redirects to `/sign-in`, which says sign-in isn't available (missing names only in development); APIs answer 503; no workspace opens. |
 | FR-AUTH-04 | P2 | A workspace saved before sign-in became compulsory is never given to an account automatically. | Settings → Account offers to move it into the signed-in account after a confirmation that names what is replaced; the unowned copy is then removed. |
@@ -402,8 +402,8 @@ The MVP is usable when all of the following are verified. Each item maps to task
 
 | # | Criterion | Tracker tasks |
 | --- | --- | --- |
-| R1 | `npm install`, `npm run dev`, `npm run build`, `npm run lint`, `npm run typecheck`, and `npm test` succeed on a clean checkout without environment variables | T1.14, T9.4–T9.6 |
-| R2 | Journeys A–E can be completed end to end in a browser | T3.8, T4.2, T5.1–T5.5, T6.1–T6.6, T7.1–T7.6, T9.9 |
+| R1 | `npm install`, `npm run build`, `npm run lint`, `npm run typecheck`, and `npm test` succeed on a clean checkout without environment variables; `npm run dev` starts without them but serves only the "Sign-in isn't available" page until the Google sign-in variables are set (D-031) | T1.14, T9.4–T9.6, T9.10 |
+| R2 | Journeys A–E can be completed end to end in a browser (`npm run test:e2e`) | T3.8, T4.2, T5.1–T5.5, T6.1–T6.6, T7.1–T7.6, T9.9 |
 | R3 | Bright mode is the default, dark mode works, and the preference persists without a flash | T2.3, T8.2 |
 | R4 | No provider shows Connected without a real connection, and demo data is labeled everywhere | T4.2, T4.3 |
 | R5 | Review transitions are unit-tested, and approval never changes publication state | T3.7, T5.6 |

@@ -2,6 +2,7 @@ import { NextResponse, type NextFetchEvent, type NextRequest } from "next/server
 import type { NextAuthRequest } from "next-auth";
 import { auth, authConfig } from "@/auth";
 import { decideAccess } from "@/lib/auth/access";
+import { withoutSessionRefresh } from "@/lib/auth/session-cookies";
 
 /**
  * Server-side sign-in gate on every request (architecture.md §10, T10.5).
@@ -21,8 +22,13 @@ function withSession(request: NextAuthRequest, event: NextFetchEvent) {
 }
 const guarded = auth(withSession);
 
-export default function proxy(request: NextRequest, event: NextFetchEvent) {
-  if (authConfig.state === "ready") return guarded(request, event);
+export default async function proxy(request: NextRequest, event: NextFetchEvent) {
+  if (authConfig.state === "ready") {
+    const response = await guarded(request, event);
+    // Read the session, never re-issue it: a late prefetch response could otherwise undo a sign-out.
+    if (response) withoutSessionRefresh(response.headers);
+    return response;
+  }
   const decision = decideAccess({ pathname: request.nextUrl.pathname, mode: authConfig.state, signedIn: false });
   if (decision.action === "allow") return NextResponse.next();
   if (decision.action === "deny") return Response.json({ error: "Sign-in isn't configured." }, { status: 503 });
